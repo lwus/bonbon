@@ -82,7 +82,7 @@ impl From<MplCollection> for Collection {
     }
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(PartialOrd, Ord, PartialEq, Eq, Default, Debug, Clone)]
 pub struct InstructionIndex {
     pub slot: i64,
 
