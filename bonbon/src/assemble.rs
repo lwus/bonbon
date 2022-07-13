@@ -506,6 +506,11 @@ pub fn update_token_instruction<T: Cocoa>(
         TokenInstruction::ThawAccount => {}
         TokenInstruction::ApproveChecked { .. } => {}
         TokenInstruction::SyncNative => {}
+        TokenInstruction::InitializeAccount3 { .. } => {}
+        TokenInstruction::InitializeMultisig2 { .. } => {}
+        TokenInstruction::InitializeMint2 { .. } => {
+            bonbon.mint_key = get_account_key(0)?;
+        },
     }
 
     Ok(())
