@@ -14,7 +14,7 @@ clap = { version = "3.1.12", features = ["cargo"] }
 fern = "0.6.1"
 itertools = "0.10.3"
 log = "0.4.16"
-mpl-token-metadata = "1.2.5"
+mpl-token-metadata = "=1.2.5"
 postgres = "0.19.2"
 postgres-types = { version = "0.2.3", features = ["derive"] }
 prost = "0.10.0"
