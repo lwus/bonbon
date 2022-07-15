@@ -95,7 +95,7 @@ pub struct InstructionIndex {
 
 #[derive(Default, Debug, Clone)]
 pub struct Glazing {
-    pub uri: Vec<u8>,
+    pub uri: String,
 
     pub creators: Vec<Creator>,
 
@@ -257,7 +257,7 @@ pub fn update_metadata_instruction<T: Cocoa>(
 
             bonbon.metadata_key = metadata_key;
             bonbon.glazings.push(Glazing {
-                uri: args.data.uri.into_bytes(),
+                uri: args.data.uri,
                 creators: from_creators(args.data.creators),
                 collection: None,
                 instruction_index,
@@ -272,7 +272,7 @@ pub fn update_metadata_instruction<T: Cocoa>(
 
             bonbon.metadata_key = metadata_key;
             bonbon.glazings.push(Glazing {
-                uri: args.data.uri.into_bytes(),
+                uri: args.data.uri,
                 creators: from_creators(args.data.creators),
                 collection: args.data.collection.map(Collection::from),
                 instruction_index,
@@ -286,7 +286,7 @@ pub fn update_metadata_instruction<T: Cocoa>(
 
             if let Some(data) = args.data {
                 bonbon.glazings.push(Glazing {
-                    uri: data.uri.into_bytes(),
+                    uri: data.uri,
                     creators: from_creators(data.creators),
                     collection: None,
                     instruction_index,
@@ -301,7 +301,7 @@ pub fn update_metadata_instruction<T: Cocoa>(
 
             if let Some(data) = args.data {
                 bonbon.glazings.push(Glazing {
-                    uri: data.uri.into_bytes(),
+                    uri: data.uri,
                     creators: from_creators(data.creators),
                     collection: data.collection.map(Collection::from),
                     instruction_index,
