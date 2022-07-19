@@ -8,6 +8,7 @@ use {
     },
     solana_sdk::{
         pubkey::Pubkey,
+        program_option::COption,
         instruction::CompiledInstruction,
     },
     spl_token::instruction::{AuthorityType, TokenInstruction},
@@ -467,11 +468,13 @@ pub fn update_token_instruction<T: Cocoa>(
             bonbon.current_owner = get_token_meta_for(1)?.map(|m| m.owner_key);
             bonbon.current_account = Some(get_account_key(1)?);
         }
-        TokenInstruction::SetAuthority { authority_type, .. } => {
+        TokenInstruction::SetAuthority { authority_type, new_authority } => {
             match authority_type {
                 AuthorityType::AccountOwner => {
                     // no account change. owner changes though possibly
-                    // TODO
+                    if let COption::Some(new_authority) = new_authority {
+                        bonbon.current_owner = Some(new_authority);
+                    }
                 }
                 _ => {}
             }
