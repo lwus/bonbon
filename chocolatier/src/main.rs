@@ -344,8 +344,8 @@ fn reassemble(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
             &[
                 &bonbon.metadata_key.as_ref(),
                 &bonbon.mint_key.as_ref(),
-                &bonbon.current_owner.map(|k| convert::SqlPubkey(k)),
-                &bonbon.current_account.map(|k| convert::SqlPubkey(k)),
+                &bonbon.current_owner.as_ref().map(|k| convert::SqlPubkey(k.owner.clone())),
+                &bonbon.current_owner.as_ref().map(|k| convert::SqlPubkey(k.account.clone())),
                 &convert::EditionStatus::from(bonbon.edition_status),
                 &bonbon.limited_edition.map(convert::LimitedEdition::from),
             ],
