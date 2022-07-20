@@ -437,6 +437,7 @@ pub fn update_metadata_instruction<T: Cocoa>(
         MetadataInstruction::RevokeCollectionAuthority => { }
         MetadataInstruction::FreezeDelegatedAccount => { }
         MetadataInstruction::ThawDelegatedAccount => { }
+        _ => todo!()
     }
 
     Ok(())

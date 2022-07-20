@@ -374,6 +374,7 @@ pub fn partition_metadata_instruction(
             // TODO
             return Ok(None);
         }
+        _ => todo!()
     };
 
     Ok(Some(*partition_key))
