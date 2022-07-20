@@ -421,7 +421,7 @@ pub fn update_metadata_instruction<T: Cocoa>(
             }
 
             let collection_key = get_account_key(3)?;
-            bonbon.apply_collection_verification(collection_key, true, instruction_index);
+            bonbon.apply_collection_verification(collection_key, false, instruction_index);
         }
         MetadataInstruction::UpdatePrimarySaleHappenedViaToken => { }
         MetadataInstruction::DeprecatedSetReservationList(_) => { }
