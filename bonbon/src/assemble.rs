@@ -126,6 +126,8 @@ pub struct Bonbon {
 
     pub metadata_key: Pubkey, // could be pubkey::default
 
+    pub mint_authority: Pubkey, // could be pubkey::default
+
     pub transfers: Vec<Transfer>,
 
     pub current_owner: Option<Ownership>,
@@ -602,6 +604,7 @@ pub fn update_token_instruction<T: Cocoa>(
                 }),
                 instruction_index.slot,
             );
+            bonbon.mint_authority = new_account;
         }
         TokenInstruction::Burn { .. } => {
             bonbon.apply_ownership(None, instruction_index.slot);
@@ -627,6 +630,7 @@ pub fn update_token_instruction<T: Cocoa>(
                 }),
                 instruction_index.slot,
             );
+            bonbon.mint_authority = new_account;
         }
         TokenInstruction::BurnChecked { .. } => {
             bonbon.apply_ownership(None, instruction_index.slot);
