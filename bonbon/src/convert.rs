@@ -104,13 +104,14 @@ pub fn convert_table_lookup(
 }
 
 pub fn convert_token_balance(
-    UiTransactionTokenBalance { account_index, mint, ui_token_amount, owner }: UiTransactionTokenBalance,
+    UiTransactionTokenBalance { account_index, mint, ui_token_amount, owner, program_id }: UiTransactionTokenBalance,
 ) -> Result<TransactionTokenBalance, ConversionError> {
     Ok(TransactionTokenBalance {
         account_index,
         mint,
         ui_token_amount,
         owner: owner.unwrap_or(String::new()),
+        program_id: program_id.unwrap_or(String::new()),
     })
 }
 
@@ -181,6 +182,7 @@ pub fn convert_transaction_status_meta(
             .map(|addresses| convert_loaded_addresses(addresses))
             .transpose()?
             .unwrap_or(v0::LoadedAddresses::default()),
+        return_data: meta.return_data,
     })
 }
 

@@ -107,7 +107,7 @@ impl From<bp::TransactionTokenMeta> for TransactionTokenMeta {
 #[postgres(name = "creator")]
 pub struct Creator {
     #[postgres(name = "creator_key")]
-    pub address: SqlPubkey,
+    pub address: String,
 
     pub verified: bool,
 
@@ -117,7 +117,7 @@ pub struct Creator {
 impl From<&bb::Creator> for Creator {
     fn from(c: &bb::Creator) -> Self {
         Self {
-            address: SqlPubkey(c.address),
+            address: c.address.to_string(),
             verified: c.verified,
             share: c.share,
         }

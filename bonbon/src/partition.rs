@@ -218,10 +218,29 @@ pub fn partition_token_instruction(
             }
             token_account_mint_key(0)
         }
-        // InitializeAccount2 above
         TokenInstruction::SyncNative => {
             Ok(None)
         }
+        TokenInstruction::InitializeAccount3 { owner } => {
+            Ok(match get_token_meta_for(0) {
+                Some(token_meta) => heuristic_token_meta_ok(token_meta)
+                    .then(|| token_meta.mint_key),
+                None => {
+                    add_transient_token_meta(transient_metas, owner)?;
+                    None
+                }
+            })
+        }
+        TokenInstruction::InitializeMultisig2 { .. } => {
+            Ok(None)
+        }
+        TokenInstruction::InitializeMint2 { decimals, .. } => {
+            if decimals != 0 {
+                Ok(None)
+            } else {
+                Ok(Some(*get_account_key(0)?))
+            }
+        },
     }
 }
 
@@ -354,6 +373,28 @@ pub fn partition_metadata_instruction(
         MetadataInstruction::ThawDelegatedAccount => {
             // TODO
             return Ok(None);
+        }
+        MetadataInstruction::BurnNft => {
+            get_account_key(0)?
+        }
+        MetadataInstruction::VerifySizedCollectionItem => {
+            get_account_key(0)?
+        }
+        MetadataInstruction::UnverifySizedCollectionItem => {
+            get_account_key(0)?
+        }
+        MetadataInstruction::SetAndVerifySizedCollectionItem => {
+            get_account_key(0)?
+        }
+        MetadataInstruction::CreateMetadataAccountV3(_) => {
+            get_account_key(0)?
+        }
+        MetadataInstruction::SetCollectionSize(_) => {
+            // TODO. shouldn't be relevant to collection members directly...
+            return Ok(None);
+        }
+        MetadataInstruction::SetTokenStandard => {
+            get_account_key(0)?
         }
     };
 

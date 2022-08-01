@@ -5,10 +5,12 @@ use {
         pda::find_metadata_account,
         state::Creator as MplCreator,
         state::Collection as MplCollection,
+        state::CollectionDetails as MplCollectionDetails,
     },
     solana_sdk::{
         pubkey::Pubkey,
         instruction::CompiledInstruction,
+        program_option::COption
     },
     spl_token::instruction::{AuthorityType, TokenInstruction},
 };
@@ -60,10 +62,12 @@ impl From<MplCreator> for Creator {
     }
 }
 
-fn from_creators(
-    creators: Option<Vec<MplCreator>>,
-) -> Vec<Creator> {
-    creators.unwrap_or(vec![]).into_iter().map(Creator::from).collect()
+fn from_creators(creators: Option<Vec<MplCreator>>) -> Vec<Creator> {
+    creators
+        .unwrap_or(vec![])
+        .into_iter()
+        .map(Creator::from)
+        .collect()
 }
 
 #[derive(Debug, Clone)]
@@ -82,6 +86,19 @@ impl From<MplCollection> for Collection {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct CollectionDetails {
+    pub size: i64,
+}
+
+impl From<MplCollectionDetails> for CollectionDetails {
+    fn from(collection_details: MplCollectionDetails) -> Self {
+        match collection_details {
+            MplCollectionDetails::V1 { size } => Self { size: size as i64 },
+        }
+    }
+}
+
 #[derive(PartialOrd, Ord, PartialEq, Eq, Default, Debug, Clone)]
 pub struct InstructionIndex {
     pub slot: i64,
@@ -94,8 +111,21 @@ pub struct InstructionIndex {
 }
 
 #[derive(Default, Debug, Clone)]
+pub struct Ownership {
+    pub owner: Pubkey,
+    pub account: Pubkey,
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct Transfer {
+    pub slot: i64,
+    pub start: Option<Ownership>, // first transfer starts for None
+    pub end: Option<Ownership>,   // end can be None after burn
+}
+
+#[derive(Default, Debug, Clone)]
 pub struct Glazing {
-    pub uri: Vec<u8>,
+    pub uri: String,
 
     pub creators: Vec<Creator>,
 
@@ -110,10 +140,13 @@ pub struct Bonbon {
 
     pub metadata_key: Pubkey, // could be pubkey::default
 
-    // TODO: track transient token_metas so we can have stronger assertions?
-    pub current_owner: Option<Pubkey>,
+    pub mint_authority: Pubkey, // could be pubkey::default
 
-    pub current_account: Option<Pubkey>,
+    pub collection_details: Option<CollectionDetails>, // Some only for collection nfts
+
+    pub transfers: Vec<Transfer>,
+
+    pub current_owner: Option<Ownership>,
 
     pub edition_status: EditionStatus,
 
@@ -127,13 +160,15 @@ pub struct Bonbon {
 
 impl Bonbon {
     pub fn apply_creator_verification(
-        &mut self, creator_key: &Pubkey, verified: bool,
+        &mut self,
+        creator_key: Pubkey,
+        verified: bool,
         instruction_index: InstructionIndex,
     ) {
         if let Some(last) = self.glazings.last() {
             let mut next: Glazing = last.clone();
             for creator in &mut next.creators {
-                if creator.address == *creator_key {
+                if creator.address == creator_key {
                     creator.verified = verified;
                     break;
                 }
@@ -142,7 +177,11 @@ impl Bonbon {
             self.glazings.push(next);
         } else {
             self.glazings.push(Glazing {
-                creators: vec![Creator { address: *creator_key, verified, share: 0 }],
+                creators: vec![Creator {
+                    address: creator_key,
+                    verified,
+                    share: 0,
+                }],
                 instruction_index,
                 ..Glazing::default()
             });
@@ -150,19 +189,46 @@ impl Bonbon {
     }
 
     pub fn apply_collection_verification(
-        &mut self, collection_key: &Pubkey, verified: bool,
+        &mut self,
+        collection_key: Pubkey,
+        verified: bool,
         instruction_index: InstructionIndex,
     ) {
-        let prev = self.glazings.last()
-            .map(|v| v.clone()).unwrap_or(Glazing::default());
+        let prev = self
+            .glazings
+            .last()
+            .map(|v| v.clone())
+            .unwrap_or(Glazing::default());
         self.glazings.push(Glazing {
             collection: Some(Collection {
-                address: *collection_key,
+                address: collection_key,
                 verified,
             }),
             instruction_index,
             ..prev
         })
+    }
+
+    pub fn apply_ownership(&mut self, new_owner: Option<Ownership>, slot: i64) {
+        if let Some(current_owner) = &self.current_owner {
+            let t = Transfer {
+                slot,
+                start: Some(current_owner.clone()),
+                end: new_owner.clone(),
+            };
+            self.transfers.push(t);
+            self.current_owner = new_owner;
+        } else {
+            // first transfer
+            let o = new_owner;
+            let t = Transfer {
+                slot,
+                start: None,
+                end: o.clone(),
+            };
+            self.transfers.push(t);
+            self.current_owner = o;
+        }
     }
 }
 
@@ -188,8 +254,47 @@ pub struct TransactionTokenOwnerMeta {
     pub owner_key: Pubkey,
 }
 
-pub struct InstructionContext<'a> {
-    pub instruction: &'a CompiledInstruction,
+pub trait Cocoa {
+    fn program_key(&self, account_keys: &[Pubkey]) -> Result<Pubkey, ErrorCode>;
+    fn account_index(&self, index: usize) -> Result<u8, ErrorCode>;
+    fn roast<T: BorshDeserialize>(&self) -> Result<T, ErrorCode>;
+    fn bake(&self) -> Result<TokenInstruction, ErrorCode>;
+
+    fn account(&self, index: usize, account_keys: &[Pubkey]) -> Result<Pubkey, ErrorCode> {
+        account_keys
+            .get(usize::from(self.account_index(index)?))
+            .map(|k| *k)
+            .ok_or(ErrorCode::BadAccountKeyIndex)
+    }
+}
+
+impl Cocoa for CompiledInstruction {
+    fn program_key(&self, account_keys: &[Pubkey]) -> Result<Pubkey, ErrorCode> {
+        account_keys
+            .get(usize::from(self.program_id_index))
+            .map(|k| *k)
+            .ok_or(ErrorCode::BadAccountKeyIndex)
+    }
+
+    fn account_index(&self, index: usize) -> Result<u8, ErrorCode> {
+        self.accounts
+            .get(index)
+            .map(|v| *v)
+            .ok_or(ErrorCode::BadAccountKeyIndex)
+    }
+
+    fn roast<T: BorshDeserialize>(&self) -> Result<T, ErrorCode> {
+        T::try_from_slice(&self.data).map_err(|_| ErrorCode::FailedInstructionDeserialization)
+    }
+
+    fn bake(&self) -> Result<TokenInstruction, ErrorCode> {
+        TokenInstruction::unpack(&self.data)
+            .map_err(|_| ErrorCode::FailedInstructionDeserialization)
+    }
+}
+
+pub struct InstructionContext<'a, T: Cocoa> {
+    pub instruction: &'a T,
 
     pub account_keys: &'a [Pubkey],
 
@@ -198,87 +303,84 @@ pub struct InstructionContext<'a> {
     pub instruction_index: InstructionIndex,
 }
 
-pub fn update_metadata_instruction(
+pub fn update_metadata_instruction<T: Cocoa>(
     bonbon: &mut Bonbon,
     InstructionContext {
-        instruction, account_keys, owners: _,
+        instruction,
+        account_keys,
+        owners: _,
         instruction_index,
-    }: InstructionContext,
+    }: InstructionContext<T>,
 ) -> Result<(), ErrorCode> {
-    let get_account_key = |index: usize| account_keys.get(
-        usize::from(instruction.accounts[index])
-    ).ok_or(ErrorCode::BadAccountKeyIndex);
+    let get_account_key = |index: usize| instruction.account(index, account_keys);
 
-    let metadata_instruction = MetadataInstruction::try_from_slice(&instruction.data)
-        .map_err(|_| ErrorCode::FailedInstructionDeserialization)?;
-
+    let metadata_instruction = instruction.roast::<MetadataInstruction>()?;
 
     match metadata_instruction {
         MetadataInstruction::CreateMetadataAccount(args) => {
             // OG create metadata
             let metadata_key = get_account_key(0)?;
-            if find_metadata_account(&bonbon.mint_key).0 != *metadata_key {
+            if find_metadata_account(&bonbon.mint_key).0 != metadata_key {
                 return Err(ErrorCode::InvalidMetadataCreate);
             }
 
-            bonbon.metadata_key = *metadata_key;
+            bonbon.metadata_key = metadata_key;
             bonbon.glazings.push(Glazing {
-                uri: args.data.uri.into_bytes(),
+                uri: args.data.uri,
                 creators: from_creators(args.data.creators),
                 collection: None,
                 instruction_index,
             });
-        },
+        }
         MetadataInstruction::CreateMetadataAccountV2(args) => {
             // create metadata with datav2 (adds collection info, etc)
             let metadata_key = get_account_key(0)?;
-            if find_metadata_account(&bonbon.mint_key).0 != *metadata_key {
+            if find_metadata_account(&bonbon.mint_key).0 != metadata_key {
                 return Err(ErrorCode::InvalidMetadataCreate);
             }
 
-            bonbon.metadata_key = *metadata_key;
+            bonbon.metadata_key = metadata_key;
             bonbon.glazings.push(Glazing {
-                uri: args.data.uri.into_bytes(),
+                uri: args.data.uri,
                 creators: from_creators(args.data.creators),
                 collection: args.data.collection.map(Collection::from),
                 instruction_index,
             });
-        },
+        }
         MetadataInstruction::UpdateMetadataAccount(args) => {
             let metadata_key = get_account_key(0)?;
-            if bonbon.metadata_key != *metadata_key {
+            if bonbon.metadata_key != metadata_key {
                 return Err(ErrorCode::InvalidMetadataUpdate);
             }
 
             if let Some(data) = args.data {
                 bonbon.glazings.push(Glazing {
-                    uri: data.uri.into_bytes(),
+                    uri: data.uri,
                     creators: from_creators(data.creators),
                     collection: None,
                     instruction_index,
                 });
             }
-        },
+        }
         MetadataInstruction::UpdateMetadataAccountV2(args) => {
             let metadata_key = get_account_key(0)?;
-            if bonbon.metadata_key != *metadata_key {
+            if bonbon.metadata_key != metadata_key {
                 return Err(ErrorCode::InvalidMetadataUpdate);
             }
 
             if let Some(data) = args.data {
                 bonbon.glazings.push(Glazing {
-                    uri: data.uri.into_bytes(),
+                    uri: data.uri,
                     creators: from_creators(data.creators),
                     collection: data.collection.map(Collection::from),
                     instruction_index,
                 });
             }
-        },
+        }
         MetadataInstruction::DeprecatedCreateMasterEdition(_) => {
             // master edition with printing tokens (and reservation list?)
             let metadata_key = get_account_key(7)?;
-            if bonbon.metadata_key != *metadata_key
-                    || bonbon.edition_status != EditionStatus::None {
+            if bonbon.metadata_key != metadata_key || bonbon.edition_status != EditionStatus::None {
                 return Err(ErrorCode::InvalidMasterEditionCreate);
             }
 
@@ -287,8 +389,7 @@ pub fn update_metadata_instruction(
         MetadataInstruction::CreateMasterEdition(_) => {
             // edition v2 w/ bitvec directly
             let metadata_key = get_account_key(5)?;
-            if bonbon.metadata_key != *metadata_key
-                    || bonbon.edition_status != EditionStatus::None {
+            if bonbon.metadata_key != metadata_key || bonbon.edition_status != EditionStatus::None {
                 return Err(ErrorCode::InvalidMasterEditionCreate);
             }
 
@@ -297,8 +398,7 @@ pub fn update_metadata_instruction(
         MetadataInstruction::CreateMasterEditionV3(_) => {
             // not sure why this exists
             let metadata_key = get_account_key(5)?;
-            if bonbon.metadata_key != *metadata_key
-                    || bonbon.edition_status != EditionStatus::None {
+            if bonbon.metadata_key != metadata_key || bonbon.edition_status != EditionStatus::None {
                 return Err(ErrorCode::InvalidMasterEditionCreate);
             }
 
@@ -307,45 +407,45 @@ pub fn update_metadata_instruction(
         MetadataInstruction::DeprecatedMintNewEditionFromMasterEditionViaPrintingToken => {
             // TODO: link with master edition for uri, creators, collection
             let metadata_key = get_account_key(0)?;
-            if find_metadata_account(&bonbon.mint_key).0 != *metadata_key {
+            if find_metadata_account(&bonbon.mint_key).0 != metadata_key {
                 return Err(ErrorCode::InvalidMetadataCreate);
             }
 
-            bonbon.metadata_key = *metadata_key;
+            bonbon.metadata_key = metadata_key;
             bonbon.edition_status = EditionStatus::Limited;
             bonbon.limited_edition = None;
         }
         MetadataInstruction::MintNewEditionFromMasterEditionViaToken(args) => {
             // TODO: link with master edition for uri, creators, collection
             let metadata_key = get_account_key(0)?;
-            if find_metadata_account(&bonbon.mint_key).0 != *metadata_key {
+            if find_metadata_account(&bonbon.mint_key).0 != metadata_key {
                 return Err(ErrorCode::InvalidMetadataCreate);
             }
 
-            bonbon.metadata_key = *metadata_key;
+            bonbon.metadata_key = metadata_key;
             bonbon.edition_status = EditionStatus::Limited;
             bonbon.limited_edition = Some(LimitedEdition {
-                master_key: *get_account_key(10)?,
+                master_key: get_account_key(10)?,
                 edition_num: Some(args.edition as i64),
             });
         }
         MetadataInstruction::MintNewEditionFromMasterEditionViaVaultProxy(args) => {
             // TODO: link with master edition for uri, creators, collection
             let metadata_key = get_account_key(0)?;
-            if find_metadata_account(&bonbon.mint_key).0 != *metadata_key {
+            if find_metadata_account(&bonbon.mint_key).0 != metadata_key {
                 return Err(ErrorCode::InvalidMetadataCreate);
             }
 
-            bonbon.metadata_key = *metadata_key;
+            bonbon.metadata_key = metadata_key;
             bonbon.edition_status = EditionStatus::Limited;
             bonbon.limited_edition = Some(LimitedEdition {
-                master_key: *get_account_key(12)?,
+                master_key: get_account_key(12)?,
                 edition_num: Some(args.edition as i64),
             });
         }
         MetadataInstruction::SignMetadata => {
             let metadata_key = get_account_key(0)?;
-            if bonbon.metadata_key != *metadata_key {
+            if bonbon.metadata_key != metadata_key {
                 return Err(ErrorCode::InvalidMetadataVerifyOperation);
             }
 
@@ -354,7 +454,7 @@ pub fn update_metadata_instruction(
         }
         MetadataInstruction::RemoveCreatorVerification => {
             let metadata_key = get_account_key(0)?;
-            if bonbon.metadata_key != *metadata_key {
+            if bonbon.metadata_key != metadata_key {
                 return Err(ErrorCode::InvalidMetadataVerifyOperation);
             }
 
@@ -363,7 +463,7 @@ pub fn update_metadata_instruction(
         }
         MetadataInstruction::VerifyCollection => {
             let metadata_key = get_account_key(0)?;
-            if bonbon.metadata_key != *metadata_key {
+            if bonbon.metadata_key != metadata_key {
                 return Err(ErrorCode::InvalidMetadataVerifyOperation);
             }
 
@@ -372,7 +472,7 @@ pub fn update_metadata_instruction(
         }
         MetadataInstruction::SetAndVerifyCollection => {
             let metadata_key = get_account_key(0)?;
-            if bonbon.metadata_key != *metadata_key {
+            if bonbon.metadata_key != metadata_key {
                 return Err(ErrorCode::InvalidMetadataVerifyOperation);
             }
 
@@ -381,12 +481,58 @@ pub fn update_metadata_instruction(
         }
         MetadataInstruction::UnverifyCollection => {
             let metadata_key = get_account_key(0)?;
-            if bonbon.metadata_key != *metadata_key {
+            if bonbon.metadata_key != metadata_key {
+                return Err(ErrorCode::InvalidMetadataVerifyOperation);
+            }
+
+            let collection_key = get_account_key(3)?;
+            bonbon.apply_collection_verification(collection_key, false, instruction_index);
+        }
+        MetadataInstruction::BurnNft => {
+            bonbon.apply_ownership(None, instruction_index.slot);
+        }
+        MetadataInstruction::VerifySizedCollectionItem => {
+            let metadata_key = get_account_key(0)?;
+            if bonbon.metadata_key != metadata_key {
                 return Err(ErrorCode::InvalidMetadataVerifyOperation);
             }
 
             let collection_key = get_account_key(3)?;
             bonbon.apply_collection_verification(collection_key, true, instruction_index);
+        }
+        MetadataInstruction::UnverifySizedCollectionItem => {
+            let metadata_key = get_account_key(0)?;
+            if bonbon.metadata_key != metadata_key {
+                return Err(ErrorCode::InvalidMetadataVerifyOperation);
+            }
+
+            let collection_key = get_account_key(3)?;
+            bonbon.apply_collection_verification(collection_key, false, instruction_index);
+        }
+        MetadataInstruction::SetAndVerifySizedCollectionItem => {
+            let metadata_key = get_account_key(0)?;
+            if bonbon.metadata_key != metadata_key {
+                return Err(ErrorCode::InvalidMetadataVerifyOperation);
+            }
+
+            let collection_key = get_account_key(4)?;
+            bonbon.apply_collection_verification(collection_key, true, instruction_index);
+        }
+        MetadataInstruction::CreateMetadataAccountV3(args) => {
+            // with collection details if parent collection NFT
+            let metadata_key = get_account_key(0)?;
+            if find_metadata_account(&bonbon.mint_key).0 != metadata_key {
+                return Err(ErrorCode::InvalidMetadataCreate);
+            }
+
+            bonbon.collection_details = args.collection_details.map(|cd| cd.into());
+            bonbon.metadata_key = metadata_key;
+            bonbon.glazings.push(Glazing {
+                uri: args.data.uri,
+                creators: from_creators(args.data.creators),
+                collection: None,
+                instruction_index,
+            });
         }
         MetadataInstruction::UpdatePrimarySaleHappenedViaToken => { }
         MetadataInstruction::DeprecatedSetReservationList(_) => { }
@@ -402,68 +548,109 @@ pub fn update_metadata_instruction(
         MetadataInstruction::RevokeCollectionAuthority => { }
         MetadataInstruction::FreezeDelegatedAccount => { }
         MetadataInstruction::ThawDelegatedAccount => { }
+        MetadataInstruction::SetCollectionSize(_) => { }
+        MetadataInstruction::SetTokenStandard => { } // TODO?
     }
 
     Ok(())
 }
 
-pub fn update_token_instruction(
+pub fn update_token_instruction<T: Cocoa>(
     bonbon: &mut Bonbon,
     InstructionContext {
-        instruction, account_keys, owners, ..
-    }: InstructionContext,
+        instruction,
+        account_keys,
+        owners,
+        instruction_index,
+    }: InstructionContext<T>,
 ) -> Result<(), ErrorCode> {
-    let get_account_key = |index: usize| account_keys.get(
-        usize::from(instruction.accounts[index])
-    ).ok_or(ErrorCode::BadAccountKeyIndex);
+    let get_account_key = |index: usize| instruction.account(index, account_keys);
 
     let get_token_meta_for = |index: usize| {
-        let index = instruction.accounts[index];
-        owners.iter().find(|m| m.account_index == index)
+        let index = instruction.account_index(index)?;
+        owners
+            .iter()
+            .find(|m| m.account_index == index)
+            .ok_or(ErrorCode::BadAccountKeyIndex)
     };
 
-    let token_instruction = TokenInstruction::unpack(&instruction.data)
-        .map_err(|_| ErrorCode::FailedInstructionDeserialization)?;
+    let token_instruction = instruction.bake()?;
 
     match token_instruction {
         TokenInstruction::InitializeMint { .. } => {
-            bonbon.mint_key = *get_account_key(0)?;
-        },
-        // initializing an account doesn't change who currently owns it
-        TokenInstruction::InitializeAccount { .. } => {},
-        TokenInstruction::InitializeAccount2 { .. } => {},
-        TokenInstruction::Transfer { .. } => {
-            bonbon.current_owner = get_token_meta_for(1).map(|m| m.owner_key);
-            bonbon.current_account = Some(*get_account_key(1)?);
+            bonbon.mint_key = get_account_key(0)?;
         }
-        TokenInstruction::SetAuthority { authority_type, .. } => {
+        // initializing an account doesn't change who currently owns it
+        TokenInstruction::InitializeAccount { .. } => {}
+        TokenInstruction::InitializeAccount2 { .. } => {}
+        TokenInstruction::Transfer { .. } => {
+            let new_owner = get_token_meta_for(1)?.owner_key;
+            let new_account = get_account_key(1)?;
+            bonbon.apply_ownership(
+                Some(Ownership {
+                    owner: new_owner,
+                    account: new_account,
+                }),
+                instruction_index.slot,
+            );
+        }
+        TokenInstruction::SetAuthority { authority_type, new_authority } => {
             match authority_type {
                 AuthorityType::AccountOwner => {
                     // no account change. owner changes though possibly
-                    // TODO
+                    if let COption::Some(new_authority) = new_authority {
+                        bonbon.apply_ownership(
+                            Some(Ownership {
+                                owner: new_authority,
+                                account: get_account_key(0)?,
+                            }),
+                            instruction_index.slot,
+                        );
+                    }
                 }
                 _ => {}
             }
         }
         TokenInstruction::MintTo { .. } => {
-            bonbon.current_owner = get_token_meta_for(1).map(|m| m.owner_key);
-            bonbon.current_account = Some(*get_account_key(1)?);
+            let new_owner = get_token_meta_for(1)?.owner_key;
+            let new_account = get_account_key(1)?;
+            bonbon.apply_ownership(
+                Some(Ownership {
+                    owner: new_owner,
+                    account: new_account,
+                }),
+                instruction_index.slot,
+            );
+            bonbon.mint_authority = new_account;
         }
         TokenInstruction::Burn { .. } => {
-            bonbon.current_owner = None;
-            bonbon.current_account = None;
+            bonbon.apply_ownership(None, instruction_index.slot);
         }
         TokenInstruction::TransferChecked { .. } => {
-            bonbon.current_owner = get_token_meta_for(2).map(|m| m.owner_key);
-            bonbon.current_account = Some(*get_account_key(2)?);
+            let new_owner = get_token_meta_for(2)?.owner_key;
+            let new_account = get_account_key(2)?;
+            bonbon.apply_ownership(
+                Some(Ownership {
+                    owner: new_owner,
+                    account: new_account,
+                }),
+                instruction_index.slot,
+            );
         }
         TokenInstruction::MintToChecked { .. } => {
-            bonbon.current_owner = get_token_meta_for(1).map(|m| m.owner_key);
-            bonbon.current_account = Some(*get_account_key(1)?);
+            let new_owner = get_token_meta_for(1)?.owner_key;
+            let new_account = get_account_key(1)?;
+            bonbon.apply_ownership(
+                Some(Ownership {
+                    owner: new_owner,
+                    account: new_account,
+                }),
+                instruction_index.slot,
+            );
+            bonbon.mint_authority = new_account;
         }
         TokenInstruction::BurnChecked { .. } => {
-            bonbon.current_owner = None;
-            bonbon.current_account = None;
+            bonbon.apply_ownership(None, instruction_index.slot);
         }
         TokenInstruction::InitializeMultisig { .. } => {}
         TokenInstruction::Approve { .. } => {}
@@ -475,37 +662,43 @@ pub fn update_token_instruction(
         TokenInstruction::ThawAccount => {}
         TokenInstruction::ApproveChecked { .. } => {}
         TokenInstruction::SyncNative => {}
+        TokenInstruction::InitializeAccount3 { .. } => {}
+        TokenInstruction::InitializeMultisig2 { .. } => {}
+        TokenInstruction::InitializeMint2 { .. } => {
+            bonbon.mint_key = get_account_key(0)?;
+        }
     }
 
     Ok(())
 }
 
-pub struct BonbonUpdater {
+pub struct BonbonUpdater<T: Cocoa> {
     pub program_id: Pubkey,
 
-    pub update: fn (
+    pub update: fn(
         bonbon: &mut Bonbon,
-        instruction_context: InstructionContext,
+        instruction_context: InstructionContext<T>,
     ) -> Result<(), ErrorCode>,
 }
 
 impl Bonbon {
-    pub fn update(
+    pub fn update<T: Cocoa>(
         &mut self,
         instruction_context @ InstructionContext {
-            instruction, account_keys, ..
-        }: InstructionContext,
-        updaters: &[BonbonUpdater],
+            instruction,
+            account_keys,
+            ..
+        }: InstructionContext<T>,
+        updaters: &[BonbonUpdater<T>],
     ) -> Result<(), ErrorCode> {
-        let program_id = account_keys.get(usize::from(instruction.program_id_index))
-            .ok_or(ErrorCode::BadAccountKeyIndex)?;
+        let program_id = instruction.program_key(account_keys)?;
 
-        if let Some(BonbonUpdater { update, .. }) = updaters.iter().find(
-                |u| u.program_id == *program_id) {
+        if let Some(BonbonUpdater { update, .. }) =
+            updaters.iter().find(|u| u.program_id == program_id)
+        {
             update(self, instruction_context)
         } else {
             Ok(())
         }
     }
 }
-
