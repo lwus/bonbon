@@ -45,24 +45,25 @@ CREATE TYPE limited_edition AS (
 );
 
 CREATE TABLE bonbons (
-  metadata_key BYTEA NOT NULL,
-  mint_key BYTEA NOT NULL,
-  current_owner BYTEA,
-  current_account BYTEA,
+  metadata_key VARCHAR NOT NULL,
+  mint_key VARCHAR NOT NULL,
+  mint_authority VARCHAR,
+  current_owner VARCHAR,
+  current_account VARCHAR,
   edition_status edition_status NOT NULL,
   limited_edition limited_edition
 );
 
 CREATE TYPE creator AS (
-  creator_key BYTEA,
+  creator_key VARCHAR,
   verified BOOLEAN,
   share SMALLINT
 );
 
 CREATE TABLE glazings (
-  metadata_key BYTEA NOT NULL,
-  uri BYTEA,
-  collection_key BYTEA,
+  metadata_key VARCHAR NOT NULL,
+  uri VARCHAR,
+  collection_key VARCHAR,
   collection_verified BOOLEAN,
   creator0 creator,
   creator1 creator,
@@ -73,5 +74,14 @@ CREATE TABLE glazings (
   block_index BIGINT NOT NULL,
   outer_index BIGINT NOT NULL,
   inner_index BIGINT
+);
+
+CREATE TABLE transfers (
+  mint_key VARCHAR NOT NULL,
+  slot BIGINT NOT NULL,
+  start_owner VARCHAR,
+  start_account VARCHAR,
+  end_owner VARCHAR,
+  end_account VARCHAR
 );
 
