@@ -157,7 +157,7 @@ pub fn partition_token_instruction(
                 // TODO: we probably don't care about this case?
                 // might be related to nft mint but shouldn't impact our handling...
                 AuthorityType::MintTokens => {
-                    Ok(None)
+                    Ok(Some(*get_account_key(0)?))
                 }
                 AuthorityType::FreezeAccount => {
                     Ok(None)
