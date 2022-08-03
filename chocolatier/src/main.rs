@@ -356,7 +356,7 @@ fn reassemble(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
                 &insert_glazing_statement,
                 &[
                     &bonbon.metadata_key.as_ref(),
-                    &glazing.uri,
+                    &glazing.uri.into_bytes(),
                     &glazing.collection.as_ref().map(|c| convert::SqlPubkey(c.address)),
                     &glazing.collection.as_ref().map(|c| c.verified),
                     &glazing.creators.get(0).map(convert::Creator::from),
