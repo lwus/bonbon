@@ -3,3 +3,6 @@ members = [
   "bonbon",
   "chocolatier",
 ]
+
+[patch.crates-io]
+solana-program = { git = "https://github.com/omertxyz/solana.git", rev = "c1e44fd635c9aa3ae31447fef19adeab2cd66943" }
