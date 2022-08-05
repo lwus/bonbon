@@ -20,10 +20,10 @@ postgres = "0.19.2"
 postgres-types = { version = "0.2.3", features = ["derive"] }
 prost = "0.10.0"
 regex = "1.5.6"
-solana-sdk = { git = "https://github.com/omertxyz/solana.git", rev = "4f886c39d5e8fbfefc6363a8c69e04aafa51a783" }
-solana-storage-bigtable = { git = "https://github.com/omertxyz/solana.git", rev = "4f886c39d5e8fbfefc6363a8c69e04aafa51a783" }
-solana-storage-proto = { git = "https://github.com/omertxyz/solana.git", rev = "4f886c39d5e8fbfefc6363a8c69e04aafa51a783" }
-solana-transaction-status = { git = "https://github.com/omertxyz/solana.git", rev = "4f886c39d5e8fbfefc6363a8c69e04aafa51a783" }
-spl-token = "=3.5.0"
+solana-sdk = { git = "https://github.com/omertxyz/solana.git", rev = "c1e44fd635c9aa3ae31447fef19adeab2cd66943" }
+solana-storage-bigtable = { git = "https://github.com/omertxyz/solana.git", rev = "c1e44fd635c9aa3ae31447fef19adeab2cd66943" }
+solana-storage-proto = { git = "https://github.com/omertxyz/solana.git", rev = "c1e44fd635c9aa3ae31447fef19adeab2cd66943" }
+solana-transaction-status = { git = "https://github.com/omertxyz/solana.git", rev = "c1e44fd635c9aa3ae31447fef19adeab2cd66943" }
+spl-token = "=3.3.0"
 tokio = "1.20"
 tokio-postgres = "0.7.5"
