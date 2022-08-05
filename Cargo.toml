@@ -5,4 +5,4 @@ members = [
 ]
 
 [patch.crates-io]
-solana-program = { git = "https://github.com/omertxyz/solana.git", rev = "6e9405eea3db6d0277679a12be0d7bd73560249f" }
+solana-program = { git = "https://github.com/omertxyz/solana.git", rev = "097da23e81854cc87d7708cf69c4ac35cdcd3fec" }
