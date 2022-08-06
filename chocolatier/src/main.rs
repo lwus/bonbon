@@ -57,11 +57,10 @@ async fn fetch(
     let chunk_size = 16;
     let mut chunk_start = block_start;
     while chunk_start < block_end {
-        let chunk_end = std::cmp::min(chunk_start + chunk_size, block_end);
-        trace!("fetching slots {}..{}", chunk_start, chunk_end);
+        let limit = std::cmp::min(chunk_size, block_end - chunk_start);
 
         let chunk_slots = bt.get_confirmed_blocks(
-            chunk_start, (chunk_end - chunk_start) as usize).await?;
+            chunk_start, limit as usize).await?;
 
         for (slot, block) in bt.get_confirmed_blocks_with_data(&chunk_slots).await? {
             let slot = slot as i64;
@@ -99,7 +98,7 @@ async fn fetch(
             }
         }
 
-        chunk_start = chunk_end;
+        chunk_start = chunk_slots.last().unwrap_or(&block_end) + 1;
     }
 
     info!("finished block fetch. waiting for db join...");
