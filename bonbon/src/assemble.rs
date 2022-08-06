@@ -621,7 +621,7 @@ pub fn update_token_instruction<T: Cocoa>(
                 }),
                 instruction_index.slot,
             );
-            bonbon.mint_authority = new_account;
+            bonbon.mint_authority = get_account_key(2)?;
         }
         TokenInstruction::Burn { .. } => {
             bonbon.apply_ownership(None, instruction_index.slot);
@@ -647,7 +647,7 @@ pub fn update_token_instruction<T: Cocoa>(
                 }),
                 instruction_index.slot,
             );
-            bonbon.mint_authority = new_account;
+            bonbon.mint_authority = get_account_key(2)?;
         }
         TokenInstruction::BurnChecked { .. } => {
             bonbon.apply_ownership(None, instruction_index.slot);
