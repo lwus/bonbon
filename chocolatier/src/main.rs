@@ -1,5 +1,6 @@
 use {
     log::*,
+    anyhow::{Result, anyhow},
     postgres::fallible_iterator::FallibleIterator,
     prost::Message,
     solana_sdk::{
@@ -23,7 +24,7 @@ async fn fetch(
     config: &Config,
     bigtable_path: String,
     block_range: String,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<()> {
     let re = regex::Regex::new(r"^(\d*)-(\d*)$")?;
 
     let (block_start, block_end) = (|| -> Option<(Slot, Slot)> {
@@ -35,7 +36,7 @@ async fn fetch(
         } else {
             Some((block_start, block_end))
         }
-    })().ok_or("Invalid --block_range")?;
+    })().ok_or(anyhow!("Invalid --block_range"))?;
 
     let (psql_client, psql_connection) = tokio_postgres::connect(
         config.psql_config.as_str(), tokio_postgres::NoTls).await?;
@@ -109,7 +110,7 @@ async fn fetch(
     Ok(())
 }
 
-fn partition(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
+fn partition(config: &Config) -> Result<()> {
     use bonbon::partition::*;
     let partitioners = [
         InstructionPartitioner {
@@ -218,7 +219,7 @@ fn partition(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn reassemble(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
+fn reassemble(config: &Config) -> Result<()> {
     use bonbon::assemble::*;
     let mut psql_client = postgres::Client::connect(
         config.psql_config.as_str(), postgres::NoTls)?;
@@ -244,11 +245,15 @@ fn reassemble(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     let insert_bonbon_statement = psql_client.prepare(
-        "INSERT INTO bonbons VALUES ($1, $2, $3, $4, $5, $6)"
+        "INSERT INTO bonbons VALUES ($1, $2, $3, $4, $5, $6, $7)"
     )?;
 
     let insert_glazing_statement = psql_client.prepare(
         "INSERT INTO glazings VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)"
+    )?;
+
+    let insert_transfer_statement = psql_client.prepare(
+        "INSERT INTO transfers VALUES ($1, $2, $3, $4, $5, $6)"
     )?;
 
     let spl_token_id_encoded = base64::encode(spl_token::id());
@@ -341,10 +346,11 @@ fn reassemble(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
         psql_client.query(
             &insert_bonbon_statement,
             &[
-                &bonbon.metadata_key.as_ref(),
-                &bonbon.mint_key.as_ref(),
-                &bonbon.current_owner.as_ref().map(|k| convert::SqlPubkey(k.owner.clone())),
-                &bonbon.current_owner.as_ref().map(|k| convert::SqlPubkey(k.account.clone())),
+                &bonbon.metadata_key.to_string(),
+                &bonbon.mint_key.to_string(),
+                &bonbon.mint_authority.to_string(),
+                &bonbon.current_owner.as_ref().map(|k| k.owner.to_string()),
+                &bonbon.current_owner.as_ref().map(|k| k.account.to_string()),
                 &convert::EditionStatus::from(bonbon.edition_status),
                 &bonbon.limited_edition.map(convert::LimitedEdition::from),
             ],
@@ -354,9 +360,9 @@ fn reassemble(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
             psql_client.query(
                 &insert_glazing_statement,
                 &[
-                    &bonbon.metadata_key.as_ref(),
-                    &glazing.uri.into_bytes(),
-                    &glazing.collection.as_ref().map(|c| convert::SqlPubkey(c.address)),
+                    &bonbon.metadata_key.to_string(),
+                    &glazing.uri,
+                    &glazing.collection.as_ref().map(|c| c.address.to_string()),
                     &glazing.collection.as_ref().map(|c| c.verified),
                     &glazing.creators.get(0).map(convert::Creator::from),
                     &glazing.creators.get(1).map(convert::Creator::from),
@@ -371,6 +377,20 @@ fn reassemble(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
             )?;
         }
 
+        for transfer in bonbon.transfers {
+            psql_client.query(
+                &insert_transfer_statement,
+                &[
+                    &bonbon.mint_key.to_string(),
+                    &transfer.slot,
+                    &transfer.start.as_ref().map(|t| t.owner.to_string()),
+                    &transfer.start.as_ref().map(|t| t.account.to_string()),
+                    &transfer.end.as_ref().map(|t| t.owner.to_string()),
+                    &transfer.end.as_ref().map(|t| t.account.to_string()),
+                ],
+            )?;
+        };
+
         update_queries += query_start.elapsed();
     }
     log::info!("reassembled in {:?}", loop_start.elapsed());
@@ -381,7 +401,7 @@ fn reassemble(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<()> {
     let log_file_default = "bonbon.log";
 
     let matches = clap::Command::new(clap::crate_name!())
@@ -437,7 +457,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config {
         psql_config: matches
             .value_of("psql_config")
-            .ok_or("Missing --psql_config")?
+            .ok_or(anyhow!("Missing --psql_config"))?
             .to_string(),
         log_file: matches
             .value_of("log_file")
@@ -480,9 +500,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     fetch(
                         &config,
                         sub_m.value_of("bigtable_path")
-                            .ok_or("Missing --bigtable_path")?.to_string(),
+                            .ok_or(anyhow!("Missing --bigtable_path"))?.to_string(),
                         sub_m.value_of("block_range")
-                            .ok_or("Missing --block_range")?.to_string(),
+                            .ok_or(anyhow!("Missing --block_range"))?.to_string(),
                     ).await
                 })?
         }
