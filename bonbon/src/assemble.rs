@@ -242,6 +242,7 @@ pub enum ErrorCode {
     InvalidMetadataVerifyOperation,
 }
 
+#[derive(Clone)]
 pub struct TransactionTokenOwnerMeta {
     pub account_index: u8,
 
