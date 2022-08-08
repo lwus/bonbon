@@ -1,18 +1,12 @@
 use {
     borsh::de::BorshDeserialize,
     mpl_token_metadata::{
-        instruction::MetadataInstruction,
-        pda::find_metadata_account,
+        instruction::MetadataInstruction, pda::find_metadata_account,
+        state::Collection as MplCollection, state::CollectionDetails as MplCollectionDetails,
         state::Creator as MplCreator,
-        state::Collection as MplCollection,
-        state::CollectionDetails as MplCollectionDetails,
     },
-    solana_sdk::{
-        pubkey::Pubkey,
-        instruction::CompiledInstruction,
-        program_option::COption
-    },
-    spl_token::instruction::{AuthorityType, TokenInstruction},
+    solana_sdk::{instruction::CompiledInstruction, program_option::COption, pubkey::Pubkey},
+    spl_token_2022::instruction::{AuthorityType, TokenInstruction},
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -257,7 +251,7 @@ pub struct TransactionTokenOwnerMeta {
 pub trait Cocoa {
     fn program_key(&self, account_keys: &[Pubkey]) -> Result<Pubkey, ErrorCode>;
     fn account_index(&self, index: usize) -> Result<u8, ErrorCode>;
-    fn roast<T: BorshDeserialize>(&self) -> Result<T, ErrorCode>;
+    fn roast(&self) -> Result<MetadataInstruction, ErrorCode>;
     fn bake(&self) -> Result<TokenInstruction, ErrorCode>;
 
     fn account(&self, index: usize, account_keys: &[Pubkey]) -> Result<Pubkey, ErrorCode> {
@@ -283,8 +277,9 @@ impl Cocoa for CompiledInstruction {
             .ok_or(ErrorCode::BadAccountKeyIndex)
     }
 
-    fn roast<T: BorshDeserialize>(&self) -> Result<T, ErrorCode> {
-        T::try_from_slice(&self.data).map_err(|_| ErrorCode::FailedInstructionDeserialization)
+    fn roast(&self) -> Result<MetadataInstruction, ErrorCode> {
+        MetadataInstruction::try_from_slice(&self.data)
+            .map_err(|_| ErrorCode::FailedInstructionDeserialization)
     }
 
     fn bake(&self) -> Result<TokenInstruction, ErrorCode> {
@@ -314,7 +309,7 @@ pub fn update_metadata_instruction<T: Cocoa>(
 ) -> Result<(), ErrorCode> {
     let get_account_key = |index: usize| instruction.account(index, account_keys);
 
-    let metadata_instruction = instruction.roast::<MetadataInstruction>()?;
+    let metadata_instruction = instruction.roast()?;
 
     match metadata_instruction {
         MetadataInstruction::CreateMetadataAccount(args) => {
@@ -534,22 +529,22 @@ pub fn update_metadata_instruction<T: Cocoa>(
                 instruction_index,
             });
         }
-        MetadataInstruction::UpdatePrimarySaleHappenedViaToken => { }
-        MetadataInstruction::DeprecatedSetReservationList(_) => { }
-        MetadataInstruction::DeprecatedCreateReservationList => { }
-        MetadataInstruction::DeprecatedMintPrintingTokensViaToken(_) => { }
-        MetadataInstruction::DeprecatedMintPrintingTokens(_) => { }
-        MetadataInstruction::ConvertMasterEditionV1ToV2 => { }
-        MetadataInstruction::PuffMetadata => { }
-        MetadataInstruction::Utilize(_) => { }
-        MetadataInstruction::ApproveUseAuthority(_) => { }
-        MetadataInstruction::RevokeUseAuthority => { }
-        MetadataInstruction::ApproveCollectionAuthority => { }
-        MetadataInstruction::RevokeCollectionAuthority => { }
-        MetadataInstruction::FreezeDelegatedAccount => { }
-        MetadataInstruction::ThawDelegatedAccount => { }
-        MetadataInstruction::SetCollectionSize(_) => { }
-        MetadataInstruction::SetTokenStandard => { } // TODO?
+        MetadataInstruction::UpdatePrimarySaleHappenedViaToken => {}
+        MetadataInstruction::DeprecatedSetReservationList(_) => {}
+        MetadataInstruction::DeprecatedCreateReservationList => {}
+        MetadataInstruction::DeprecatedMintPrintingTokensViaToken(_) => {}
+        MetadataInstruction::DeprecatedMintPrintingTokens(_) => {}
+        MetadataInstruction::ConvertMasterEditionV1ToV2 => {}
+        MetadataInstruction::PuffMetadata => {}
+        MetadataInstruction::Utilize(_) => {}
+        MetadataInstruction::ApproveUseAuthority(_) => {}
+        MetadataInstruction::RevokeUseAuthority => {}
+        MetadataInstruction::ApproveCollectionAuthority => {}
+        MetadataInstruction::RevokeCollectionAuthority => {}
+        MetadataInstruction::FreezeDelegatedAccount => {}
+        MetadataInstruction::ThawDelegatedAccount => {}
+        MetadataInstruction::SetCollectionSize(_) => {}
+        MetadataInstruction::SetTokenStandard => {} // TODO?
     }
 
     Ok(())
@@ -594,7 +589,10 @@ pub fn update_token_instruction<T: Cocoa>(
                 instruction_index.slot,
             );
         }
-        TokenInstruction::SetAuthority { authority_type, new_authority } => {
+        TokenInstruction::SetAuthority {
+            authority_type,
+            new_authority,
+        } => {
             match authority_type {
                 AuthorityType::AccountOwner => {
                     // no account change. owner changes though possibly
@@ -667,6 +665,8 @@ pub fn update_token_instruction<T: Cocoa>(
         TokenInstruction::InitializeMint2 { .. } => {
             bonbon.mint_key = get_account_key(0)?;
         }
+        // need to add full support for spl_token_2022
+        _ => todo!(),
     }
 
     Ok(())

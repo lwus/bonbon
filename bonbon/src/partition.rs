@@ -1,17 +1,14 @@
 use {
     borsh::de::BorshDeserialize,
     mpl_token_metadata::instruction::MetadataInstruction,
-    spl_token::instruction::{AuthorityType, TokenInstruction},
     solana_account_decoder::StringAmount,
     solana_sdk::{
         instruction::CompiledInstruction,
-        message::{VersionedMessage, AccountKeys},
+        message::{AccountKeys, VersionedMessage},
         pubkey::Pubkey,
     },
-    solana_transaction_status::{
-        TransactionWithStatusMeta,
-        TransactionTokenBalance,
-    },
+    solana_transaction_status::{TransactionTokenBalance, TransactionWithStatusMeta},
+    spl_token_2022::instruction::{AuthorityType, TokenInstruction},
     std::collections::HashMap,
 };
 
@@ -43,21 +40,25 @@ pub struct InstructionContext<'a, 'k> {
 pub struct InstructionPartitioner {
     pub program_id: Pubkey,
 
-    pub partitioner: fn (
-        instruction_context: InstructionContext,
-    ) -> Result<Option<Pubkey>, ErrorCode>,
+    pub partitioner:
+        fn(instruction_context: InstructionContext) -> Result<Option<Pubkey>, ErrorCode>,
 }
 
 // NB: only returns a value for instructions that are 'likely' to contain an NFT-related token
 // instruction (i.e heuristic based on mint, amount, etc)
 pub fn partition_token_instruction(
     InstructionContext {
-        instruction, account_keys, token_metas, transient_metas,
+        instruction,
+        account_keys,
+        token_metas,
+        transient_metas,
     }: InstructionContext,
 ) -> Result<Option<Pubkey>, ErrorCode> {
-    let get_account_key = |index: usize| account_keys.get(
-        instruction.accounts[index].into()
-    ).ok_or(ErrorCode::BadAccountKeyIndex);
+    let get_account_key = |index: usize| {
+        account_keys
+            .get(instruction.accounts[index].into())
+            .ok_or(ErrorCode::BadAccountKeyIndex)
+    };
     let get_token_meta_for = |index: usize| {
         let index = instruction.accounts[index];
         if let Some(v) = token_metas.iter().find(|m| m.account_index == index) {
@@ -71,9 +72,11 @@ pub fn partition_token_instruction(
     let heuristic_token_meta_ok = |meta: &TransactionTokenMeta| {
         let amount_ok = |amount: &Option<StringAmount>| {
             match amount {
-                Some(amount) => amount.len() == 1
-                    && (amount.as_bytes()[0] == 0x30 // 0
-                        || amount.as_bytes()[0] == 0x31), // or 1
+                Some(amount) => {
+                    amount.len() == 1
+                        && (amount.as_bytes()[0] == 0x30 // 0
+                        || amount.as_bytes()[0] == 0x31)
+                } // or 1
                 None => true,
             }
         };
@@ -81,16 +84,13 @@ pub fn partition_token_instruction(
     };
 
     let token_account_mint_key = |index| -> Result<Option<Pubkey>, ErrorCode> {
-        let token_meta = get_token_meta_for(index)
-            .ok_or(ErrorCode::BadTokenMetaAccountIndex)?;
-        Ok(heuristic_token_meta_ok(token_meta)
-            .then(|| token_meta.mint_key))
+        let token_meta = get_token_meta_for(index).ok_or(ErrorCode::BadTokenMetaAccountIndex)?;
+        Ok(heuristic_token_meta_ok(token_meta).then(|| token_meta.mint_key))
     };
 
-    let add_transient_token_meta = |
-        transient_metas: &mut Vec<TransactionTokenMeta>,
-        owner_key: Pubkey,
-    | -> Result<(), ErrorCode> {
+    let add_transient_token_meta = |transient_metas: &mut Vec<TransactionTokenMeta>,
+                                    owner_key: Pubkey|
+     -> Result<(), ErrorCode> {
         // didn't show up in pre- or post- balances so could be transient...
         transient_metas.push(TransactionTokenMeta {
             account_index: instruction.accounts[0],
@@ -113,30 +113,22 @@ pub fn partition_token_instruction(
             } else {
                 Ok(Some(*get_account_key(0)?))
             }
-        },
-        TokenInstruction::InitializeAccount { .. } => {
-            Ok(match get_token_meta_for(0) {
-                Some(token_meta) => heuristic_token_meta_ok(token_meta)
-                    .then(|| token_meta.mint_key),
-                None => {
-                    add_transient_token_meta(transient_metas, *get_account_key(2)?)?;
-                    None
-                }
-            })
-        },
-        TokenInstruction::InitializeAccount2 { owner } => {
-            Ok(match get_token_meta_for(0) {
-                Some(token_meta) => heuristic_token_meta_ok(token_meta)
-                    .then(|| token_meta.mint_key),
-                None => {
-                    add_transient_token_meta(transient_metas, owner)?;
-                    None
-                }
-            })
-        },
-        TokenInstruction::InitializeMultisig { .. } => {
-            Ok(None)
         }
+        TokenInstruction::InitializeAccount { .. } => Ok(match get_token_meta_for(0) {
+            Some(token_meta) => heuristic_token_meta_ok(token_meta).then(|| token_meta.mint_key),
+            None => {
+                add_transient_token_meta(transient_metas, *get_account_key(2)?)?;
+                None
+            }
+        }),
+        TokenInstruction::InitializeAccount2 { owner } => Ok(match get_token_meta_for(0) {
+            Some(token_meta) => heuristic_token_meta_ok(token_meta).then(|| token_meta.mint_key),
+            None => {
+                add_transient_token_meta(transient_metas, owner)?;
+                None
+            }
+        }),
+        TokenInstruction::InitializeMultisig { .. } => Ok(None),
         TokenInstruction::Transfer { amount } => {
             if amount > 1 {
                 return Ok(None);
@@ -149,21 +141,15 @@ pub fn partition_token_instruction(
             }
             token_account_mint_key(0)
         }
-        TokenInstruction::Revoke => {
-            token_account_mint_key(0)
-        }
+        TokenInstruction::Revoke => token_account_mint_key(0),
         TokenInstruction::SetAuthority { authority_type, .. } => {
             match authority_type {
                 // TODO: we probably don't care about this case?
                 // might be related to nft mint but shouldn't impact our handling...
-                AuthorityType::MintTokens => {
-                    Ok(Some(*get_account_key(0)?))
-                }
-                AuthorityType::FreezeAccount => {
-                    Ok(None)
-                }
+                AuthorityType::MintTokens => Ok(Some(*get_account_key(0)?)),
+                AuthorityType::FreezeAccount => Ok(None),
                 // here we could be changing ownership (aka transfer) so do handle this one...
-                _ => token_account_mint_key(0)
+                _ => token_account_mint_key(0),
             }
         }
         TokenInstruction::MintTo { amount } => {
@@ -180,8 +166,10 @@ pub fn partition_token_instruction(
         }
         TokenInstruction::CloseAccount => {
             // mints can't be closed and a token account must have zero balance to be closed so...
-            if let Some(index) = transient_metas.iter().position(
-                    |m| m.account_index == instruction.accounts[0]) {
+            if let Some(index) = transient_metas
+                .iter()
+                .position(|m| m.account_index == instruction.accounts[0])
+            {
                 transient_metas.swap_remove(index);
             }
             Ok(None)
@@ -218,40 +206,39 @@ pub fn partition_token_instruction(
             }
             token_account_mint_key(0)
         }
-        TokenInstruction::SyncNative => {
-            Ok(None)
-        }
-        TokenInstruction::InitializeAccount3 { owner } => {
-            Ok(match get_token_meta_for(0) {
-                Some(token_meta) => heuristic_token_meta_ok(token_meta)
-                    .then(|| token_meta.mint_key),
-                None => {
-                    add_transient_token_meta(transient_metas, owner)?;
-                    None
-                }
-            })
-        }
-        TokenInstruction::InitializeMultisig2 { .. } => {
-            Ok(None)
-        }
+        TokenInstruction::SyncNative => Ok(None),
+        TokenInstruction::InitializeAccount3 { owner } => Ok(match get_token_meta_for(0) {
+            Some(token_meta) => heuristic_token_meta_ok(token_meta).then(|| token_meta.mint_key),
+            None => {
+                add_transient_token_meta(transient_metas, owner)?;
+                None
+            }
+        }),
+        TokenInstruction::InitializeMultisig2 { .. } => Ok(None),
         TokenInstruction::InitializeMint2 { decimals, .. } => {
             if decimals != 0 {
                 Ok(None)
             } else {
                 Ok(Some(*get_account_key(0)?))
             }
-        },
+        }
+        // need to add full support for spl_token_2022
+        _ => todo!(),
     }
 }
 
 pub fn partition_metadata_instruction(
     InstructionContext {
-        instruction, account_keys, ..
+        instruction,
+        account_keys,
+        ..
     }: InstructionContext,
 ) -> Result<Option<Pubkey>, ErrorCode> {
-    let get_account_key = |index: usize| account_keys.get(
-        instruction.accounts[index].into()
-    ).ok_or(ErrorCode::BadAccountKeyIndex);
+    let get_account_key = |index: usize| {
+        account_keys
+            .get(instruction.accounts[index].into())
+            .ok_or(ErrorCode::BadAccountKeyIndex)
+    };
     // TODO: skip check for SetReservationList:
     // metaplex-foundation/metaplex/commit/3e26b6b208900181a9c42362f206690544467be9,
     // this instruction's arguments change. we don't actually care about this instruction atm so
@@ -264,17 +251,13 @@ pub fn partition_metadata_instruction(
         MetadataInstruction::CreateMetadataAccount(_) => {
             // OG create metadata
             get_account_key(0)?
-        },
+        }
         MetadataInstruction::CreateMetadataAccountV2(_) => {
             // create metadata with datav2 (adds collection info, etc)
             get_account_key(0)?
-        },
-        MetadataInstruction::UpdateMetadataAccount(_) => {
-            get_account_key(0)?
-        },
-        MetadataInstruction::UpdateMetadataAccountV2(_) => {
-            get_account_key(0)?
-        },
+        }
+        MetadataInstruction::UpdateMetadataAccount(_) => get_account_key(0)?,
+        MetadataInstruction::UpdateMetadataAccountV2(_) => get_account_key(0)?,
         MetadataInstruction::DeprecatedCreateMasterEdition(_) => {
             // master edition with printing tokens (and reservation list?)
             get_account_key(7)?
@@ -303,61 +286,35 @@ pub fn partition_metadata_instruction(
 
             get_account_key(0)?
         }
-        MetadataInstruction::MintNewEditionFromMasterEditionViaToken(_)=> {
+        MetadataInstruction::MintNewEditionFromMasterEditionViaToken(_) => {
             let _master_key = get_account_key(10)?;
             get_account_key(0)?
         }
-        MetadataInstruction::MintNewEditionFromMasterEditionViaVaultProxy(_)=> {
+        MetadataInstruction::MintNewEditionFromMasterEditionViaVaultProxy(_) => {
             let _master_key = get_account_key(12)?;
             get_account_key(0)?
         }
-        MetadataInstruction::SignMetadata => {
-            get_account_key(0)?
-        }
-        MetadataInstruction::RemoveCreatorVerification => {
-            get_account_key(0)?
-        }
-        MetadataInstruction::VerifyCollection => {
-            get_account_key(0)?
-        }
-        MetadataInstruction::SetAndVerifyCollection => {
-            get_account_key(0)?
-        }
-        MetadataInstruction::UnverifyCollection => {
-            get_account_key(0)?
-        }
-        MetadataInstruction::UpdatePrimarySaleHappenedViaToken => {
-            get_account_key(0)?
-        }
+        MetadataInstruction::SignMetadata => get_account_key(0)?,
+        MetadataInstruction::RemoveCreatorVerification => get_account_key(0)?,
+        MetadataInstruction::VerifyCollection => get_account_key(0)?,
+        MetadataInstruction::SetAndVerifyCollection => get_account_key(0)?,
+        MetadataInstruction::UnverifyCollection => get_account_key(0)?,
+        MetadataInstruction::UpdatePrimarySaleHappenedViaToken => get_account_key(0)?,
         MetadataInstruction::DeprecatedSetReservationList(_) => {
             // see note above
             return Ok(None);
         }
-        MetadataInstruction::DeprecatedCreateReservationList => {
-            get_account_key(5)?
-        }
-        MetadataInstruction::DeprecatedMintPrintingTokensViaToken(_) => {
-            get_account_key(5)?
-        }
-        MetadataInstruction::DeprecatedMintPrintingTokens(_) => {
-            get_account_key(3)?
-        }
+        MetadataInstruction::DeprecatedCreateReservationList => get_account_key(5)?,
+        MetadataInstruction::DeprecatedMintPrintingTokensViaToken(_) => get_account_key(5)?,
+        MetadataInstruction::DeprecatedMintPrintingTokens(_) => get_account_key(3)?,
         MetadataInstruction::ConvertMasterEditionV1ToV2 => {
             // TODO
             return Ok(None);
         }
-        MetadataInstruction::PuffMetadata => {
-            get_account_key(0)?
-        }
-        MetadataInstruction::Utilize(_) => {
-            get_account_key(0)?
-        }
-        MetadataInstruction::ApproveUseAuthority(_) => {
-            get_account_key(5)?
-        }
-        MetadataInstruction::RevokeUseAuthority => {
-            get_account_key(5)?
-        }
+        MetadataInstruction::PuffMetadata => get_account_key(0)?,
+        MetadataInstruction::Utilize(_) => get_account_key(0)?,
+        MetadataInstruction::ApproveUseAuthority(_) => get_account_key(5)?,
+        MetadataInstruction::RevokeUseAuthority => get_account_key(5)?,
         MetadataInstruction::ApproveCollectionAuthority => {
             // this only changes authority for the collection nft...
             get_account_key(4)?
@@ -374,28 +331,16 @@ pub fn partition_metadata_instruction(
             // TODO
             return Ok(None);
         }
-        MetadataInstruction::BurnNft => {
-            get_account_key(0)?
-        }
-        MetadataInstruction::VerifySizedCollectionItem => {
-            get_account_key(0)?
-        }
-        MetadataInstruction::UnverifySizedCollectionItem => {
-            get_account_key(0)?
-        }
-        MetadataInstruction::SetAndVerifySizedCollectionItem => {
-            get_account_key(0)?
-        }
-        MetadataInstruction::CreateMetadataAccountV3(_) => {
-            get_account_key(0)?
-        }
+        MetadataInstruction::BurnNft => get_account_key(0)?,
+        MetadataInstruction::VerifySizedCollectionItem => get_account_key(0)?,
+        MetadataInstruction::UnverifySizedCollectionItem => get_account_key(0)?,
+        MetadataInstruction::SetAndVerifySizedCollectionItem => get_account_key(0)?,
+        MetadataInstruction::CreateMetadataAccountV3(_) => get_account_key(0)?,
         MetadataInstruction::SetCollectionSize(_) => {
             // TODO. shouldn't be relevant to collection members directly...
             return Ok(None);
         }
-        MetadataInstruction::SetTokenStandard => {
-            get_account_key(0)?
-        }
+        MetadataInstruction::SetTokenStandard => get_account_key(0)?,
     };
 
     Ok(Some(*partition_key))
@@ -403,34 +348,49 @@ pub fn partition_metadata_instruction(
 
 pub fn partition_transaction(
     transaction: TransactionWithStatusMeta,
-    partitioners: &[InstructionPartitioner]
+    partitioners: &[InstructionPartitioner],
 ) -> Result<(Vec<PartitionedInstruction>, Vec<TransactionTokenMeta>), ErrorCode> {
-    let status_meta = transaction.get_status_meta()
+    let status_meta = transaction
+        .get_status_meta()
         .ok_or(ErrorCode::MissingTransactionStatusMeta)?;
 
     let account_keys = &transaction.account_keys();
 
-    let meta_from_balance = |b: &TransactionTokenBalance| Ok(TransactionTokenMeta {
-        account_index: b.account_index,
-        decimals: b.ui_token_amount.decimals,
-        pre_amount: None,
-        post_amount: None,
-        mint_key: Pubkey::new(bs58::decode(b.mint.clone()).into_vec()
-            .map_err(|_| ErrorCode::BadPubkeyString)?.as_slice()),
-        owner_key: Pubkey::new(bs58::decode(b.owner.clone()).into_vec()
-            .map_err(|_| ErrorCode::BadPubkeyString)?.as_slice()),
-    });
+    let meta_from_balance = |b: &TransactionTokenBalance| {
+        Ok(TransactionTokenMeta {
+            account_index: b.account_index,
+            decimals: b.ui_token_amount.decimals,
+            pre_amount: None,
+            post_amount: None,
+            mint_key: Pubkey::new(
+                bs58::decode(b.mint.clone())
+                    .into_vec()
+                    .map_err(|_| ErrorCode::BadPubkeyString)?
+                    .as_slice(),
+            ),
+            owner_key: Pubkey::new(
+                bs58::decode(b.owner.clone())
+                    .into_vec()
+                    .map_err(|_| ErrorCode::BadPubkeyString)?
+                    .as_slice(),
+            ),
+        })
+    };
 
     let mut token_metas = HashMap::new();
     for balance in status_meta.pre_token_balances.into_iter().flatten() {
         let token_meta = meta_from_balance(&balance)?;
-        let meta = token_metas.entry(balance.account_index).or_insert(token_meta);
+        let meta = token_metas
+            .entry(balance.account_index)
+            .or_insert(token_meta);
         meta.pre_amount = Some(balance.ui_token_amount.amount);
     }
 
     for balance in status_meta.post_token_balances.into_iter().flatten() {
         let token_meta = meta_from_balance(&balance)?;
-        let meta = token_metas.entry(balance.account_index).or_insert(token_meta);
+        let meta = token_metas
+            .entry(balance.account_index)
+            .or_insert(token_meta);
         meta.post_amount = Some(balance.ui_token_amount.amount);
     }
 
@@ -438,23 +398,26 @@ pub fn partition_transaction(
     let mut transient_metas = vec![];
 
     let mut partitioned = vec![];
-    let mut try_partition_instruction = |
-        instruction: CompiledInstruction,
-        outer_index: usize,
-        inner_index: Option<usize>,
-    | -> Result<(), ErrorCode> {
-        let program_id = account_keys.get(usize::from(instruction.program_id_index))
+    let mut try_partition_instruction = |instruction: CompiledInstruction,
+                                         outer_index: usize,
+                                         inner_index: Option<usize>|
+     -> Result<(), ErrorCode> {
+        let program_id = account_keys
+            .get(usize::from(instruction.program_id_index))
             .ok_or(ErrorCode::BadAccountKeyIndex)?;
 
-        if let Some(InstructionPartitioner { partitioner, .. }) = partitioners.iter().find(
-            |p| &p.program_id == program_id) {
+        if let Some(InstructionPartitioner { partitioner, .. }) =
+            partitioners.iter().find(|p| &p.program_id == program_id)
+        {
             let partition_key = partitioner(InstructionContext {
                 instruction: &instruction,
                 account_keys,
                 token_metas: &token_metas,
                 transient_metas: &mut transient_metas,
             })?;
-            if partition_key.is_none() { return Ok(()); }
+            if partition_key.is_none() {
+                return Ok(());
+            }
             partitioned.push(PartitionedInstruction {
                 instruction,
                 partition_key: partition_key.unwrap(),
@@ -522,4 +485,3 @@ pub enum ErrorCode {
 
     FailedTransientTokenAccountMatching,
 }
-
