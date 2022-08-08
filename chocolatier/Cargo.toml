@@ -20,11 +20,11 @@ postgres = "0.19.2"
 postgres-types = { version = "0.2.3", features = ["derive"] }
 prost = "0.10.0"
 regex = "1.5.6"
-solana-sdk = "=1.11.2"
-solana-storage-bigtable = "=1.11.2"
-solana-storage-proto = "=1.11.2"
-solana-transaction-status = "=1.11.2"
+solana-sdk = { git = "https://github.com/omertxyz/solana.git", rev = "097da23e81854cc87d7708cf69c4ac35cdcd3fec" }
+solana-storage-bigtable = { git = "https://github.com/omertxyz/solana.git", rev = "097da23e81854cc87d7708cf69c4ac35cdcd3fec" }
+solana-storage-proto = { git = "https://github.com/omertxyz/solana.git", rev = "097da23e81854cc87d7708cf69c4ac35cdcd3fec" }
+solana-transaction-status = { git = "https://github.com/omertxyz/solana.git", rev = "097da23e81854cc87d7708cf69c4ac35cdcd3fec" }
 spl-token = "3.3.0"
-tokio = "1.14.1"
+tokio = "1.20"
 tokio-postgres = "0.7.5"
 
