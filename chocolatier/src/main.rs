@@ -361,7 +361,7 @@ fn reassemble(config: &Config) -> Result<()> {
                 &insert_glazing_statement,
                 &[
                     &bonbon.metadata_key.to_string(),
-                    &glazing.uri,
+                    &glazing.uri.trim_matches(char::from(0)),
                     &glazing.collection.as_ref().map(|c| c.address.to_string()),
                     &glazing.collection.as_ref().map(|c| c.verified),
                     &glazing.creators.get(0).map(convert::Creator::from),
