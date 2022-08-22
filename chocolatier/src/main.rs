@@ -249,7 +249,7 @@ fn reassemble(config: &Config) -> Result<()> {
     )?;
 
     let insert_glazing_statement = psql_client.prepare(
-        "INSERT INTO glazings VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)"
+        "INSERT INTO glazings VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"
     )?;
 
     let insert_transfer_statement = psql_client.prepare(
@@ -371,10 +371,7 @@ fn reassemble(config: &Config) -> Result<()> {
                     &glazing.creators.get(2).map(convert::Creator::from),
                     &glazing.creators.get(3).map(convert::Creator::from),
                     &glazing.creators.get(4).map(convert::Creator::from),
-                    &glazing.instruction_index.slot,
-                    &glazing.instruction_index.block_index,
-                    &glazing.instruction_index.outer_index,
-                    &glazing.instruction_index.inner_index,
+                    &convert::InstructionIndex::from(glazing.instruction_index),
                 ],
             )?;
         }

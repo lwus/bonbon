@@ -35,6 +35,8 @@ pub struct LimitedEdition {
     // TODO: this is kind of a PITA to track correctly with the old method. Punt for now
     // (Option)
     pub edition_num: Option<i64>,
+
+    pub instruction_index: InstructionIndex,
 }
 
 #[derive(Debug, Clone)]
@@ -389,7 +391,6 @@ pub fn update_metadata_instruction<T: Cocoa>(
             bonbon.edition_status = EditionStatus::Master;
         }
         MetadataInstruction::DeprecatedMintNewEditionFromMasterEditionViaPrintingToken => {
-            // TODO: link with master edition for uri, creators, collection
             let metadata_key = get_account_key(0)?;
             if find_metadata_account(&bonbon.mint_key).0 != metadata_key {
                 return Err(ErrorCode::InvalidMetadataCreate);
@@ -400,10 +401,10 @@ pub fn update_metadata_instruction<T: Cocoa>(
             bonbon.limited_edition = Some(LimitedEdition {
                 master_key: get_account_key(11)?,
                 edition_num: None,
+                instruction_index,
             });
         }
         MetadataInstruction::MintNewEditionFromMasterEditionViaToken(args) => {
-            // TODO: link with master edition for uri, creators, collection
             let metadata_key = get_account_key(0)?;
             if find_metadata_account(&bonbon.mint_key).0 != metadata_key {
                 return Err(ErrorCode::InvalidMetadataCreate);
@@ -414,10 +415,10 @@ pub fn update_metadata_instruction<T: Cocoa>(
             bonbon.limited_edition = Some(LimitedEdition {
                 master_key: get_account_key(10)?,
                 edition_num: Some(args.edition as i64),
+                instruction_index,
             });
         }
         MetadataInstruction::MintNewEditionFromMasterEditionViaVaultProxy(args) => {
-            // TODO: link with master edition for uri, creators, collection
             let metadata_key = get_account_key(0)?;
             if find_metadata_account(&bonbon.mint_key).0 != metadata_key {
                 return Err(ErrorCode::InvalidMetadataCreate);
@@ -428,6 +429,7 @@ pub fn update_metadata_instruction<T: Cocoa>(
             bonbon.limited_edition = Some(LimitedEdition {
                 master_key: get_account_key(12)?,
                 edition_num: Some(args.edition as i64),
+                instruction_index,
             });
         }
         MetadataInstruction::SignMetadata => {

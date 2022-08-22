@@ -324,11 +324,9 @@ pub fn partition_metadata_instruction(
             get_account_key(3)?
         }
         MetadataInstruction::FreezeDelegatedAccount => {
-            // TODO
             return Ok(None);
         }
         MetadataInstruction::ThawDelegatedAccount => {
-            // TODO
             return Ok(None);
         }
     };

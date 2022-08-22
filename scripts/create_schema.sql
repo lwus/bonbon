@@ -38,10 +38,18 @@ CREATE TYPE edition_status AS enum (
   'limited'
 );
 
+CREATE TYPE instruction_index AS (
+  slot BIGINT,
+  block_index BIGINT,
+  outer_index BIGINT,
+  inner_index BIGINT
+);
+
 CREATE TYPE limited_edition AS (
   master_key VARCHAR,
   -- u64 but close enough...
-  edition_num BIGINT
+  edition_num BIGINT,
+  instruction_index instruction_index
 );
 
 CREATE TABLE bonbons (
@@ -70,10 +78,7 @@ CREATE TABLE glazings (
   creator2 creator,
   creator3 creator,
   creator4 creator,
-  slot BIGINT NOT NULL,
-  block_index BIGINT NOT NULL,
-  outer_index BIGINT NOT NULL,
-  inner_index BIGINT
+  instruction_index instruction_index NOT NULL
 );
 
 CREATE TABLE transfers (

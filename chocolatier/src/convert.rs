@@ -71,6 +71,8 @@ pub struct LimitedEdition {
     master_key: String,
 
     edition_num: Option<i64>,
+
+    instruction_index: InstructionIndex,
 }
 
 impl From<bb::LimitedEdition> for LimitedEdition {
@@ -78,6 +80,7 @@ impl From<bb::LimitedEdition> for LimitedEdition {
         Self {
             master_key: e.master_key.to_string(),
             edition_num: e.edition_num,
+            instruction_index: InstructionIndex::from(e.instruction_index),
         }
     }
 }
@@ -120,6 +123,29 @@ impl From<&bb::Creator> for Creator {
             address: c.address.to_string(),
             verified: c.verified,
             share: c.share,
+        }
+    }
+}
+
+#[derive(Debug, ToSql, FromSql)]
+#[postgres(name = "instruction_index")]
+pub struct InstructionIndex {
+    pub slot: i64,
+
+    pub block_index: i64,
+
+    pub outer_index: i64,
+
+    pub inner_index: Option<i64>,
+}
+
+impl From<bb::InstructionIndex> for InstructionIndex {
+    fn from(c: bb::InstructionIndex) -> Self {
+        Self {
+            slot: c.slot,
+            block_index: c.block_index,
+            outer_index: c.outer_index,
+            inner_index: c.inner_index,
         }
     }
 }
