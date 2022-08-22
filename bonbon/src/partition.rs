@@ -118,14 +118,14 @@ pub fn partition_token_instruction(
             Some(token_meta) => heuristic_token_meta_ok(token_meta).then(|| token_meta.mint_key),
             None => {
                 add_transient_token_meta(transient_metas, *get_account_key(2)?)?;
-                None
+                Some(*get_account_key(1)?)
             }
         }),
         TokenInstruction::InitializeAccount2 { owner } => Ok(match get_token_meta_for(0) {
             Some(token_meta) => heuristic_token_meta_ok(token_meta).then(|| token_meta.mint_key),
             None => {
                 add_transient_token_meta(transient_metas, owner)?;
-                None
+                Some(*get_account_key(1)?)
             }
         }),
         TokenInstruction::InitializeMultisig { .. } => Ok(None),
@@ -211,7 +211,7 @@ pub fn partition_token_instruction(
             Some(token_meta) => heuristic_token_meta_ok(token_meta).then(|| token_meta.mint_key),
             None => {
                 add_transient_token_meta(transient_metas, owner)?;
-                None
+                Some(*get_account_key(1)?)
             }
         }),
         TokenInstruction::InitializeMultisig2 { .. } => Ok(None),
