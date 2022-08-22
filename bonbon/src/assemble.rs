@@ -394,7 +394,10 @@ pub fn update_metadata_instruction<T: Cocoa>(
 
             bonbon.metadata_key = metadata_key;
             bonbon.edition_status = EditionStatus::Limited;
-            bonbon.limited_edition = None;
+            bonbon.limited_edition = Some(LimitedEdition {
+                master_key: get_account_key(11)?,
+                edition_num: None,
+            });
         }
         MetadataInstruction::MintNewEditionFromMasterEditionViaToken(args) => {
             // TODO: link with master edition for uri, creators, collection
