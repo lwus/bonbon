@@ -39,7 +39,7 @@ CREATE TYPE edition_status AS enum (
 );
 
 CREATE TYPE limited_edition AS (
-  master_key BYTEA,
+  master_key VARCHAR,
   -- u64 but close enough...
   edition_num BIGINT
 );

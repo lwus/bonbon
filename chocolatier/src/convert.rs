@@ -68,7 +68,7 @@ impl<'a> FromSql<'a> for SqlPubkey {
 #[derive(Debug, ToSql, FromSql)]
 #[postgres(name = "limited_edition")]
 pub struct LimitedEdition {
-    master_key: SqlPubkey,
+    master_key: String,
 
     edition_num: Option<i64>,
 }
@@ -76,7 +76,7 @@ pub struct LimitedEdition {
 impl From<bb::LimitedEdition> for LimitedEdition {
     fn from(e: bb::LimitedEdition) -> Self {
         Self {
-            master_key: SqlPubkey(e.master_key),
+            master_key: e.master_key.to_string(),
             edition_num: e.edition_num,
         }
     }
