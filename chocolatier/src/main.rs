@@ -295,6 +295,7 @@ fn reassemble(config: &Config) -> Result<()> {
 
         let mut bonbon = Bonbon::default();
         let mut update_err = None;
+        let mut transient_metas = vec![];
         for row in instructions {
             let deserialization_start = std::time::Instant::now();
             let instruction = bincode::deserialize
@@ -320,6 +321,7 @@ fn reassemble(config: &Config) -> Result<()> {
                 instruction: &instruction,
                 owners: &metas,
                 instruction_index: InstructionIndex { slot, block_index, outer_index, inner_index },
+                transient_metas: &mut transient_metas,
             };
 
             match bonbon.update(instruction_context, &updaters) {

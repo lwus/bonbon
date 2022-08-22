@@ -282,6 +282,8 @@ pub struct InstructionContext<'a, T: Cocoa> {
     pub owners: &'a [TransactionTokenOwnerMeta],
 
     pub instruction_index: InstructionIndex,
+
+    pub transient_metas: &'a mut Vec<TransactionTokenOwnerMeta>,
 }
 
 pub fn update_metadata_instruction<T: Cocoa>(
@@ -291,6 +293,7 @@ pub fn update_metadata_instruction<T: Cocoa>(
         account_keys,
         owners: _,
         instruction_index,
+        transient_metas: _,
     }: InstructionContext<T>,
 ) -> Result<(), ErrorCode> {
     let get_account_key = |index: usize| instruction.account(index, account_keys);
@@ -498,16 +501,19 @@ pub fn update_token_instruction<T: Cocoa>(
         account_keys,
         owners,
         instruction_index,
+        transient_metas,
     }: InstructionContext<T>,
 ) -> Result<(), ErrorCode> {
     let get_account_key = |index: usize| instruction.account(index, account_keys);
 
     let get_token_meta_for = |index: usize| {
         let index = instruction.account_index(index)?;
-        owners
-            .iter()
-            .find(|m| m.account_index == index)
-            .ok_or(ErrorCode::BadAccountKeyIndex)
+        if let Some(v) = owners.iter().find(|m| m.account_index == index) {
+            Ok(v)
+        } else {
+            transient_metas.iter().find(|m| m.account_index == index)
+                .ok_or(ErrorCode::BadAccountKeyIndex)
+        }
     };
 
     let token_instruction = instruction.bake()?;
@@ -517,8 +523,22 @@ pub fn update_token_instruction<T: Cocoa>(
             bonbon.mint_key = get_account_key(0)?;
         }
         // initializing an account doesn't change who currently owns it
-        TokenInstruction::InitializeAccount { .. } => {}
-        TokenInstruction::InitializeAccount2 { .. } => {}
+        TokenInstruction::InitializeAccount { .. } => {
+            if let Err(_) = get_token_meta_for(0) {
+                transient_metas.push(TransactionTokenOwnerMeta {
+                    account_index: instruction.account_index(0)?,
+                    owner_key: get_account_key(2)?,
+                });
+            }
+        }
+        TokenInstruction::InitializeAccount2 { .. } => {
+            if let Err(_) = get_token_meta_for(0) {
+                transient_metas.push(TransactionTokenOwnerMeta {
+                    account_index: instruction.account_index(0)?,
+                    owner_key: get_account_key(2)?,
+                });
+            }
+        }
         TokenInstruction::Transfer { .. } => {
             let new_owner = get_token_meta_for(1)?.owner_key;
             let new_account = get_account_key(1)?;
@@ -596,12 +616,26 @@ pub fn update_token_instruction<T: Cocoa>(
         TokenInstruction::Revoke => {}
         TokenInstruction::CloseAccount => {
             // mints can't be closed and a token account must have zero balance to be closed so...
+            let account_index = instruction.account_index(0)?;
+            if let Some(index) = transient_metas
+                .iter()
+                .position(|m| m.account_index == account_index)
+            {
+                transient_metas.swap_remove(index);
+            }
         }
         TokenInstruction::FreezeAccount => {}
         TokenInstruction::ThawAccount => {}
         TokenInstruction::ApproveChecked { .. } => {}
         TokenInstruction::SyncNative => {}
-        TokenInstruction::InitializeAccount3 { .. } => {}
+        TokenInstruction::InitializeAccount3 { .. } => {
+            if let Err(_) = get_token_meta_for(0) {
+                transient_metas.push(TransactionTokenOwnerMeta {
+                    account_index: instruction.account_index(0)?,
+                    owner_key: get_account_key(2)?,
+                });
+            }
+        }
         TokenInstruction::InitializeMultisig2 { .. } => {}
         TokenInstruction::InitializeMint2 { .. } => {
             bonbon.mint_key = get_account_key(0)?;
