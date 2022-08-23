@@ -222,9 +222,24 @@ pub fn partition_token_instruction(
                 Ok(Some(*get_account_key(0)?))
             }
         }
-        // need to add full support for spl_token_2022
-        _ => todo!(),
-    }
+        // CPI information
+        TokenInstruction::GetAccountDataSize { .. } => Ok(None),
+        TokenInstruction::AmountToUiAmount { .. } => Ok(None),
+        TokenInstruction::UiAmountToAmount { .. } => Ok(None),
+        // all of these extensions should be built on top of existing handling
+        TokenInstruction::TransferFeeExtension(..) => Ok(None),
+        TokenInstruction::ConfidentialTransferExtension => Ok(None),
+        TokenInstruction::DefaultAccountStateExtension => Ok(None),
+        TokenInstruction::MemoTransferExtension => Ok(None),
+        TokenInstruction::InterestBearingMintExtension => Ok(None),
+        TokenInstruction::Reallocate { .. } => Ok(None),
+        // one-off
+        TokenInstruction::CreateNativeMint => Ok(None),
+        // these are called before InitializeMint so we'll pick up the necessary information
+        TokenInstruction::InitializeImmutableOwner => Ok(None),
+        TokenInstruction::InitializeMintCloseAuthority { .. } => Ok(None),
+        TokenInstruction::InitializeNonTransferableMint => Ok(None),
+        }
 }
 
 pub fn partition_metadata_instruction(

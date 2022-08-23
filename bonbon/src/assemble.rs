@@ -642,8 +642,21 @@ pub fn update_token_instruction<T: Cocoa>(
         TokenInstruction::InitializeMint2 { .. } => {
             bonbon.mint_key = get_account_key(0)?;
         }
-        // need to add full support for spl_token_2022
-        _ => todo!(),
+
+        // none of the token-2022 info gets passed out of partition
+        TokenInstruction::GetAccountDataSize { .. } => {},
+        TokenInstruction::AmountToUiAmount { .. } => {},
+        TokenInstruction::UiAmountToAmount { .. } => {},
+        TokenInstruction::TransferFeeExtension(..) => {},
+        TokenInstruction::ConfidentialTransferExtension => {},
+        TokenInstruction::DefaultAccountStateExtension => {},
+        TokenInstruction::MemoTransferExtension => {},
+        TokenInstruction::InterestBearingMintExtension => {},
+        TokenInstruction::Reallocate { .. } => {},
+        TokenInstruction::CreateNativeMint => {},
+        TokenInstruction::InitializeImmutableOwner => {},
+        TokenInstruction::InitializeMintCloseAuthority { .. } => {},
+        TokenInstruction::InitializeNonTransferableMint => {},
     }
 
     Ok(())
