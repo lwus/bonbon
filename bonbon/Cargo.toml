@@ -7,9 +7,9 @@ license = "Apache-2.0"
 [dependencies]
 borsh = "0.9.3"
 bs58 = "0.4.0"
-mpl-token-metadata = { git = "https://github.com/omertxyz/solana-nft-metadata.git", rev = "9f8de6a744f63f095f6cf79f8e8c5b558dca1ae1" }
-solana-account-decoder = { git = "https://github.com/omertxyz/solana.git", rev = "0da726b10057897deea09e849097c6076c04443d" }
-solana-sdk = { git = "https://github.com/omertxyz/solana.git", rev = "0da726b10057897deea09e849097c6076c04443d" }
-solana-transaction-status = { git = "https://github.com/omertxyz/solana.git", rev = "0da726b10057897deea09e849097c6076c04443d" }
+mpl-token-metadata = { git = "https://github.com/omertxyz/solana-nft-metadata.git", rev = "dc467a3c1b69e181fb3515575b3c35405edbf802" }
+solana-account-decoder = { git = "https://github.com/omertxyz/solana.git", rev = "03a3b241622b6248bb245c29baef538a88f04c0b" }
+solana-sdk = { git = "https://github.com/omertxyz/solana.git", rev = "03a3b241622b6248bb245c29baef538a88f04c0b" }
+solana-transaction-status = { git = "https://github.com/omertxyz/solana.git", rev = "03a3b241622b6248bb245c29baef538a88f04c0b" }
 spl-token-2022 = "0.4.1"
 spl-token = "3.3.0"
