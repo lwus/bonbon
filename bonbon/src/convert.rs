@@ -183,6 +183,7 @@ pub fn convert_transaction_status_meta(
             .transpose()?
             .unwrap_or(v0::LoadedAddresses::default()),
         return_data: meta.return_data,
+        compute_units_consumed: meta.compute_units_consumed,
     })
 }
 
