@@ -1,7 +1,6 @@
 use {
     borsh::de::BorshDeserialize,
     mpl_token_metadata::instruction::MetadataInstruction,
-    solana_account_decoder::StringAmount,
     solana_sdk::{
         instruction::CompiledInstruction,
         message::{AccountKeys, VersionedMessage},
@@ -18,9 +17,9 @@ pub struct TransactionTokenMeta {
 
     pub decimals: u8,
 
-    pub pre_amount: Option<StringAmount>,
+    pub pre_amount: Option<String>,
 
-    pub post_amount: Option<StringAmount>,
+    pub post_amount: Option<String>,
 
     pub mint_key: Pubkey,
 
@@ -70,7 +69,7 @@ pub fn partition_token_instruction(
 
     // TODO: less jank. filter/parse all these upfront?
     let heuristic_token_meta_ok = |meta: &TransactionTokenMeta| {
-        let amount_ok = |amount: &Option<StringAmount>| {
+        let amount_ok = |amount: &Option<String>| {
             match amount {
                 Some(amount) => {
                     amount.len() == 1

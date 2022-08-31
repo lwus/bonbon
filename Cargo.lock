@@ -339,7 +339,6 @@ dependencies = [
  "borsh",
  "bs58",
  "mpl-token-metadata",
- "solana-account-decoder",
  "solana-sdk",
  "solana-transaction-status",
  "spl-token",
