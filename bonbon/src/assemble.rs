@@ -541,6 +541,7 @@ pub fn update_token_instruction<T: Cocoa>(
                 });
             }
         }
+        #[allow(deprecated)]
         TokenInstruction::Transfer { .. } => {
             let new_owner = get_token_meta_for(1)?.owner_key;
             let new_account = get_account_key(1)?;

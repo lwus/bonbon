@@ -129,6 +129,7 @@ pub fn partition_token_instruction(
             }
         }),
         TokenInstruction::InitializeMultisig { .. } => Ok(None),
+        #[allow(deprecated)]
         TokenInstruction::Transfer { amount } => {
             if amount > 1 {
                 return Ok(None);
