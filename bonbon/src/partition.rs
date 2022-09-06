@@ -373,10 +373,39 @@ pub fn meta_from_balance(
     })
 }
 
+#[derive(Debug)]
+pub enum Reason {
+    PartitionFailure {
+        error_code: ErrorCode,
+    },
+    NoMatchingPartitioner,
+    PartitionerReturnedNone,
+}
+
+pub struct OtherInstruction {
+    pub instruction: CompiledInstruction,
+
+    pub program_key: Pubkey,
+
+    pub outer_index: i64,
+
+    pub inner_index: Option<i64>,
+
+    pub reason: Reason,
+}
+
+pub struct Partitions {
+    pub partitioned: Vec<PartitionedInstruction>,
+
+    pub other: Vec<OtherInstruction>,
+
+    pub token_metas: Vec<TransactionTokenMeta>,
+}
+
 pub fn partition_transaction(
     transaction: TransactionWithStatusMeta,
     partitioners: &[InstructionPartitioner],
-) -> Result<(Vec<PartitionedInstruction>, Vec<TransactionTokenMeta>), ErrorCode> {
+) -> Result<Partitions, ErrorCode> {
     let status_meta = transaction
         .get_status_meta()
         .ok_or(ErrorCode::MissingTransactionStatusMeta)?;
@@ -404,6 +433,7 @@ pub fn partition_transaction(
     let mut transient_metas = vec![];
 
     let mut partitioned = vec![];
+    let mut other = vec![];
     let mut try_partition_instruction = |instruction: CompiledInstruction,
                                          outer_index: usize,
                                          inner_index: Option<usize>|
@@ -411,6 +441,14 @@ pub fn partition_transaction(
         let program_id = account_keys
             .get(usize::from(instruction.program_id_index))
             .ok_or(ErrorCode::BadAccountKeyIndex)?;
+
+        let build_other = |reason: Reason| OtherInstruction {
+            instruction: instruction.clone(),
+            reason,
+            program_key: *program_id,
+            outer_index: outer_index as i64,
+            inner_index: inner_index.map(|v| v as i64),
+        };
 
         if let Some(InstructionPartitioner { partitioner, .. }) =
             partitioners.iter().find(|p| &p.program_id == program_id)
@@ -420,17 +458,25 @@ pub fn partition_transaction(
                 account_keys,
                 token_metas: &token_metas,
                 transient_metas: &mut transient_metas,
-            })?;
-            if partition_key.is_none() {
-                return Ok(());
-            }
-            partitioned.push(PartitionedInstruction {
-                instruction,
-                partition_key: partition_key.unwrap(),
-                program_key: *program_id,
-                outer_index: outer_index as i64,
-                inner_index: inner_index.map(|v| v as i64),
             });
+
+            match partition_key {
+                Ok(Some(partition_key)) =>
+                    partitioned.push(PartitionedInstruction {
+                        instruction,
+                        partition_key,
+                        program_key: *program_id,
+                        outer_index: outer_index as i64,
+                        inner_index: inner_index.map(|v| v as i64),
+                    }),
+                Ok(None) =>
+                    other.push(build_other(Reason::PartitionerReturnedNone)),
+                Err(error_code) => {
+                    other.push(build_other(Reason::PartitionFailure { error_code }));
+                }
+            }
+        } else {
+            other.push(build_other(Reason::NoMatchingPartitioner));
         }
         Ok(())
     };
@@ -462,7 +508,7 @@ pub fn partition_transaction(
         return Err(ErrorCode::FailedTransientTokenAccountMatching);
     }
 
-    Ok((partitioned, token_metas))
+    Ok(Partitions { partitioned, other, token_metas })
 }
 
 pub struct PartitionedInstruction {
