@@ -350,6 +350,29 @@ pub fn partition_metadata_instruction(
     Ok(Some(*partition_key))
 }
 
+pub fn meta_from_balance(
+    b: &TransactionTokenBalance,
+) -> Result<TransactionTokenMeta, ErrorCode> {
+    Ok(TransactionTokenMeta {
+        account_index: b.account_index,
+        decimals: b.ui_token_amount.decimals,
+        pre_amount: None,
+        post_amount: None,
+        mint_key: Pubkey::new(
+            bs58::decode(b.mint.clone())
+                .into_vec()
+                .map_err(|_| ErrorCode::BadPubkeyString)?
+                .as_slice(),
+        ),
+        owner_key: Pubkey::new(
+            bs58::decode(b.owner.clone())
+                .into_vec()
+                .map_err(|_| ErrorCode::BadPubkeyString)?
+                .as_slice(),
+        ),
+    })
+}
+
 pub fn partition_transaction(
     transaction: TransactionWithStatusMeta,
     partitioners: &[InstructionPartitioner],
@@ -359,27 +382,6 @@ pub fn partition_transaction(
         .ok_or(ErrorCode::MissingTransactionStatusMeta)?;
 
     let account_keys = &transaction.account_keys();
-
-    let meta_from_balance = |b: &TransactionTokenBalance| {
-        Ok(TransactionTokenMeta {
-            account_index: b.account_index,
-            decimals: b.ui_token_amount.decimals,
-            pre_amount: None,
-            post_amount: None,
-            mint_key: Pubkey::new(
-                bs58::decode(b.mint.clone())
-                    .into_vec()
-                    .map_err(|_| ErrorCode::BadPubkeyString)?
-                    .as_slice(),
-            ),
-            owner_key: Pubkey::new(
-                bs58::decode(b.owner.clone())
-                    .into_vec()
-                    .map_err(|_| ErrorCode::BadPubkeyString)?
-                    .as_slice(),
-            ),
-        })
-    };
 
     let mut token_metas = HashMap::new();
     for balance in status_meta.pre_token_balances.into_iter().flatten() {
