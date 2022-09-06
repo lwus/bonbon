@@ -136,8 +136,12 @@ fn partition(config: &Config) -> Result<()> {
     let mut insert_client = postgres::Client::connect(
         config.psql_config.as_str(), postgres::NoTls)?;
 
-    let insert_transaction_statement = insert_client.prepare(
+    let insert_partition_statement = insert_client.prepare(
         "INSERT INTO partitions VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"
+    )?;
+
+    let insert_other_statement = insert_client.prepare(
+        "INSERT INTO partition_failures VALUES ($1, $2, $3, $4, $5, $6, $7)"
     )?;
 
     let insert_account_keys_statement = insert_client.prepare(
@@ -171,7 +175,7 @@ fn partition(config: &Config) -> Result<()> {
             .iter().map(|k| k.as_ref().to_vec()).collect::<Vec<_>>();
 
         match partition_transaction(transaction, &partitioners) {
-            Ok((partitioned, token_metas)) => {
+            Ok(bonbon::partition::Partitions { partitioned, token_metas, other }) => {
                 if partitioned.len() != 0 {
                     insert_client.query(
                         &insert_account_keys_statement,
@@ -194,7 +198,7 @@ fn partition(config: &Config) -> Result<()> {
                     // TODO: soft error?
                     let serialized = bincode::serialize(&instruction)?;
                     insert_client.query(
-                        &insert_transaction_statement,
+                        &insert_partition_statement,
                         &[
                             &partition_key.as_ref(),
                             &program_key.as_ref(),
@@ -206,6 +210,36 @@ fn partition(config: &Config) -> Result<()> {
                             &serialized,
                         ],
                     )?;
+                }
+
+                for OtherInstruction {
+                    reason,
+                    instruction,
+                    program_key,
+                    outer_index,
+                    inner_index,
+                } in other {
+                    match reason {
+                        Reason::PartitionFailure { error_code } => {
+                            warn!("failed to partition {}.{:04x}.{:02x}.{:?} [{}]: {:?}",
+                                  slot, block_index, outer_index, inner_index,
+                                  bs58::encode(&signature).into_string(), error_code);
+                            let serialized = bincode::serialize(&instruction)?;
+                            insert_client.query(
+                                &insert_other_statement,
+                                &[
+                                    &program_key.as_ref(),
+                                    &slot,
+                                    &block_index,
+                                    &outer_index,
+                                    &inner_index,
+                                    &signature.as_slice(),
+                                    &serialized,
+                                ],
+                            )?;
+                        }
+                        _ => {},
+                    }
                 }
             }
             Err(err) => {

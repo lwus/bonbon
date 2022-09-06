@@ -6,6 +6,16 @@ CREATE TABLE transactions (
   transaction BYTEA
 );
 
+CREATE TABLE partition_failures (
+  program_key BYTEA NOT NULL,
+  slot BIGINT NOT NULL,
+  block_index BIGINT NOT NULL,
+  outer_index BIGINT NOT NULL,
+  inner_index BIGINT,
+  signature BYTEA NOT NULL,
+  instruction BYTEA
+);
+
 CREATE TABLE partitions (
   partition_key BYTEA NOT NULL,
   program_key BYTEA NOT NULL,
