@@ -4,6 +4,7 @@ DROP TABLE IF EXISTS bonbons;
 
 DROP TABLE IF EXISTS account_keys;
 DROP TABLE IF EXISTS partitions ;
+DROP TABLE IF EXISTS partition_failures ;
 DROP TABLE IF EXISTS transactions ;
 
 DROP TYPE IF EXISTS limited_edition;
