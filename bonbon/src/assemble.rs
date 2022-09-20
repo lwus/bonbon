@@ -108,6 +108,10 @@ pub struct Transfer {
 
 #[derive(Default, Debug, Clone)]
 pub struct Glazing {
+    pub name: String,
+
+    pub symbol: String,
+
     pub uri: String,
 
     pub creators: Vec<Creator>,
@@ -312,6 +316,8 @@ pub fn update_metadata_instruction<T: Cocoa>(
 
             bonbon.metadata_key = metadata_key;
             bonbon.glazings.push(Glazing {
+                name: args.data.name,
+                symbol: args.data.symbol,
                 uri: args.data.uri,
                 creators: from_creators(args.data.creators),
                 collection: None,
@@ -327,6 +333,8 @@ pub fn update_metadata_instruction<T: Cocoa>(
 
             bonbon.metadata_key = metadata_key;
             bonbon.glazings.push(Glazing {
+                name: args.data.name,
+                symbol: args.data.symbol,
                 uri: args.data.uri,
                 creators: from_creators(args.data.creators),
                 collection: args.data.collection.map(Collection::from),
@@ -341,6 +349,8 @@ pub fn update_metadata_instruction<T: Cocoa>(
 
             if let Some(data) = args.data {
                 bonbon.glazings.push(Glazing {
+                    name: data.name,
+                    symbol: data.symbol,
                     uri: data.uri,
                     creators: from_creators(data.creators),
                     collection: None,
@@ -356,6 +366,8 @@ pub fn update_metadata_instruction<T: Cocoa>(
 
             if let Some(data) = args.data {
                 bonbon.glazings.push(Glazing {
+                    name: data.name,
+                    symbol: data.symbol,
                     uri: data.uri,
                     creators: from_creators(data.creators),
                     collection: data.collection.map(Collection::from),

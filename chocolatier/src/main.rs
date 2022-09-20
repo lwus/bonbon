@@ -283,7 +283,7 @@ fn reassemble(config: &Config) -> Result<()> {
     )?;
 
     let insert_glazing_statement = psql_client.prepare(
-        "INSERT INTO glazings VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"
+        "INSERT INTO glazings VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)"
     )?;
 
     let insert_transfer_statement = psql_client.prepare(
@@ -397,6 +397,8 @@ fn reassemble(config: &Config) -> Result<()> {
                 &insert_glazing_statement,
                 &[
                     &bonbon.metadata_key.to_string(),
+                    &glazing.name.trim_matches(char::from(0)),
+                    &glazing.symbol.trim_matches(char::from(0)),
                     &glazing.uri.trim_matches(char::from(0)),
                     &glazing.collection.as_ref().map(|c| c.address.to_string()),
                     &glazing.collection.as_ref().map(|c| c.verified),

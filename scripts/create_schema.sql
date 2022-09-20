@@ -80,6 +80,8 @@ CREATE TYPE creator AS (
 
 CREATE TABLE glazings (
   metadata_key VARCHAR NOT NULL,
+  name VARCHAR,
+  symbol VARCHAR,
   uri VARCHAR,
   collection_key VARCHAR,
   collection_verified BOOLEAN,
