@@ -223,5 +223,21 @@ export const createNfts = async (
   });
   console.info(`Created NFT: ${immutableNFT.address.toBase58()}`);
 
-  // TODO(jon): Master Edition / Limited Edition
+  console.info("Creating Master Edition NFT with 5 supply");
+  const masterEditionNFT5Supply = await createNft(metaplex, {
+    json: {
+      name: "Master Edition NFT w/ 5 supply",
+    },
+    name: "Master Edition NFT w/ 5 supply",
+    maxSupply: 5,
+  });
+  console.info(`Created NFT: ${masterEditionNFT5Supply.address.toBase58()}`);
+  const { nft: limitedEditionNFT } = await metaplex
+    .nfts()
+    .printNewEdition({
+      originalMint: masterEditionNFT5Supply.address,
+      newOwner: destination,
+    })
+    .run();
+  console.info(`Created NFT: ${limitedEditionNFT.address.toBase58()}`);
 };
