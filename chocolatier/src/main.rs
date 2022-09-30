@@ -341,7 +341,7 @@ fn reassemble(config: &Config) -> Result<()> {
             let metas: Vec<convert::TransactionTokenMeta> = row.get(3);
             let metas = metas.into_iter().map(|m| TransactionTokenOwnerMeta {
                 account_index: m.account_index as u8, // TODO: check?
-                owner_key: m.owner_key.0,
+                owner_key: m.owner_key.map(|p| p.0),
             }).collect::<Vec<_>>();
             deserialization_duration += deserialization_start.elapsed();
 

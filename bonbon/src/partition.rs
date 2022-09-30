@@ -24,7 +24,7 @@ pub struct TransactionTokenMeta {
 
     pub mint_key: Pubkey,
 
-    pub owner_key: Pubkey,
+    pub owner_key: Option<Pubkey>,
 }
 
 pub struct InstructionContext<'a, 'k> {
@@ -98,7 +98,7 @@ pub fn partition_token_instruction(
             pre_amount: None,
             post_amount: None,
             mint_key: *get_account_key(1)?,
-            owner_key,
+            owner_key: Some(owner_key),
         });
         Ok(())
     };
@@ -358,18 +358,26 @@ pub fn meta_from_balance(
         decimals: b.ui_token_amount.decimals,
         pre_amount: None,
         post_amount: None,
-        mint_key: Pubkey::new(
+        mint_key: Pubkey::new_from_array(<[u8; 32]>::try_from(
             bs58::decode(b.mint.clone())
                 .into_vec()
                 .map_err(|_| ErrorCode::BadPubkeyString)?
-                .as_slice(),
+                .as_slice()
+            )
+            .map_err(|_| ErrorCode::BadPubkeyString)?
         ),
-        owner_key: Pubkey::new(
-            bs58::decode(b.owner.clone())
-                .into_vec()
+        owner_key: if b.owner.is_empty() {
+            None
+        } else {
+            Some(Pubkey::new_from_array(<[u8; 32]>::try_from(
+                bs58::decode(b.owner.clone())
+                    .into_vec()
+                    .map_err(|_| ErrorCode::BadPubkeyString)?
+                    .as_slice(),
+                )
                 .map_err(|_| ErrorCode::BadPubkeyString)?
-                .as_slice(),
-        ),
+            ))
+        },
     })
 }
 

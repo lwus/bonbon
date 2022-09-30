@@ -93,7 +93,7 @@ pub struct TransactionTokenMeta {
 
     pub mint_key: SqlPubkey,
 
-    pub owner_key: SqlPubkey,
+    pub owner_key: Option<SqlPubkey>,
 }
 
 impl From<bp::TransactionTokenMeta> for TransactionTokenMeta {
@@ -101,7 +101,7 @@ impl From<bp::TransactionTokenMeta> for TransactionTokenMeta {
         Self {
             account_index: m.account_index.into(),
             mint_key: SqlPubkey(m.mint_key),
-            owner_key: SqlPubkey(m.owner_key),
+            owner_key: m.owner_key.map(SqlPubkey),
         }
     }
 }

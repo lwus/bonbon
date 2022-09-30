@@ -7,6 +7,7 @@ use {
     },
     solana_sdk::{instruction::CompiledInstruction, program_option::COption, pubkey::Pubkey},
     spl_token_2022::instruction::{AuthorityType, TokenInstruction},
+    std::collections::HashMap,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -141,6 +142,11 @@ pub struct Bonbon {
     // track creator / collection verification and override those with the new values for the
     // limited edition
     pub glazings: Vec<Glazing>,
+
+    // mapping of token account to owner
+    // TODO: this is a bit of a hack. We need to track the owner of the token account and normally
+    // rely on pre/postTokenBalances but those aren't available around block ~80M so...
+    ownerships: HashMap<Pubkey, Pubkey>,
 }
 
 impl Bonbon {
@@ -231,13 +237,15 @@ pub enum ErrorCode {
 
     // includes unverify creator/collection
     InvalidMetadataVerifyOperation,
+
+    CouldNotFindTokenAccountOwner,
 }
 
 #[derive(Clone)]
 pub struct TransactionTokenOwnerMeta {
     pub account_index: u8,
 
-    pub owner_key: Pubkey,
+    pub owner_key: Option<Pubkey>,
 }
 
 pub trait Cocoa {
@@ -538,18 +546,30 @@ pub fn update_token_instruction<T: Cocoa>(
         }
         // initializing an account doesn't change who currently owns it
         TokenInstruction::InitializeAccount { .. } => {
+            let account_key = get_account_key(0)?;
+            let owner_key = get_account_key(2)?;
+            bonbon.ownerships.insert(
+                account_key,
+                owner_key,
+            );
             if let Err(_) = get_token_meta_for(0) {
                 transient_metas.push(TransactionTokenOwnerMeta {
                     account_index: instruction.account_index(0)?,
-                    owner_key: get_account_key(2)?,
+                    owner_key: Some(owner_key),
                 });
             }
         }
         TokenInstruction::InitializeAccount2 { .. } => {
+            let account_key = get_account_key(0)?;
+            let owner_key = get_account_key(2)?;
+            bonbon.ownerships.insert(
+                account_key,
+                owner_key,
+            );
             if let Err(_) = get_token_meta_for(0) {
                 transient_metas.push(TransactionTokenOwnerMeta {
                     account_index: instruction.account_index(0)?,
-                    owner_key: get_account_key(2)?,
+                    owner_key: Some(owner_key),
                 });
             }
         }
@@ -559,7 +579,9 @@ pub fn update_token_instruction<T: Cocoa>(
             let new_account = get_account_key(1)?;
             bonbon.apply_ownership(
                 Some(Ownership {
-                    owner: new_owner,
+                    owner: new_owner.or_else(
+                        || bonbon.ownerships.get(&new_account).cloned())
+                        .ok_or(ErrorCode::CouldNotFindTokenAccountOwner)?,
                     account: new_account,
                 }),
                 instruction_index.slot,
@@ -590,7 +612,9 @@ pub fn update_token_instruction<T: Cocoa>(
             let new_account = get_account_key(1)?;
             bonbon.apply_ownership(
                 Some(Ownership {
-                    owner: new_owner,
+                    owner: new_owner.or_else(
+                        || bonbon.ownerships.get(&new_account).cloned())
+                        .ok_or(ErrorCode::CouldNotFindTokenAccountOwner)?,
                     account: new_account,
                 }),
                 instruction_index.slot,
@@ -605,7 +629,9 @@ pub fn update_token_instruction<T: Cocoa>(
             let new_account = get_account_key(2)?;
             bonbon.apply_ownership(
                 Some(Ownership {
-                    owner: new_owner,
+                    owner: new_owner.or_else(
+                        || bonbon.ownerships.get(&new_account).cloned())
+                        .ok_or(ErrorCode::CouldNotFindTokenAccountOwner)?,
                     account: new_account,
                 }),
                 instruction_index.slot,
@@ -616,7 +642,9 @@ pub fn update_token_instruction<T: Cocoa>(
             let new_account = get_account_key(1)?;
             bonbon.apply_ownership(
                 Some(Ownership {
-                    owner: new_owner,
+                    owner: new_owner.or_else(
+                        || bonbon.ownerships.get(&new_account).cloned())
+                        .ok_or(ErrorCode::CouldNotFindTokenAccountOwner)?,
                     account: new_account,
                 }),
                 instruction_index.slot,
@@ -631,6 +659,7 @@ pub fn update_token_instruction<T: Cocoa>(
         TokenInstruction::Revoke => {}
         TokenInstruction::CloseAccount => {
             // mints can't be closed and a token account must have zero balance to be closed so...
+            bonbon.ownerships.remove(&get_account_key(0)?);
             let account_index = instruction.account_index(0)?;
             if let Some(index) = transient_metas
                 .iter()
@@ -644,10 +673,16 @@ pub fn update_token_instruction<T: Cocoa>(
         TokenInstruction::ApproveChecked { .. } => {}
         TokenInstruction::SyncNative => {}
         TokenInstruction::InitializeAccount3 { .. } => {
+            let account_key = get_account_key(0)?;
+            let owner_key = get_account_key(2)?;
+            bonbon.ownerships.insert(
+                account_key,
+                owner_key,
+            );
             if let Err(_) = get_token_meta_for(0) {
                 transient_metas.push(TransactionTokenOwnerMeta {
                     account_index: instruction.account_index(0)?,
-                    owner_key: get_account_key(2)?,
+                    owner_key: Some(owner_key),
                 });
             }
         }
