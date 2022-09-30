@@ -2,7 +2,7 @@ use {
     borsh::de::BorshDeserialize,
     mpl_token_metadata::{
         instruction::MetadataInstruction, pda::find_metadata_account,
-        state::Collection as MplCollection, state::CollectionDetails as MplCollectionDetails,
+        state::Collection as MplCollection,
         state::Creator as MplCreator,
     },
     solana_sdk::{instruction::CompiledInstruction, program_option::COption, pubkey::Pubkey},
@@ -83,19 +83,6 @@ impl From<MplCollection> for Collection {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct CollectionDetails {
-    pub size: i64,
-}
-
-impl From<MplCollectionDetails> for CollectionDetails {
-    fn from(collection_details: MplCollectionDetails) -> Self {
-        match collection_details {
-            MplCollectionDetails::V1 { size } => Self { size: size as i64 },
-        }
-    }
-}
-
 #[derive(PartialOrd, Ord, PartialEq, Eq, Default, Debug, Clone)]
 pub struct InstructionIndex {
     pub slot: i64,
@@ -142,8 +129,6 @@ pub struct Bonbon {
     pub metadata_key: Pubkey, // could be pubkey::default
 
     pub mint_authority: Pubkey, // could be pubkey::default
-
-    pub collection_details: Option<CollectionDetails>, // Some only for collection nfts
 
     pub transfers: Vec<Transfer>,
 
@@ -549,9 +534,12 @@ pub fn update_metadata_instruction<T: Cocoa>(
                 return Err(ErrorCode::InvalidMetadataCreate);
             }
 
-            bonbon.collection_details = args.collection_details.map(|cd| cd.into());
+            // ignore collection details
+            // bonbon.collection_details = args.collection_details.map(|cd| cd.into());
             bonbon.metadata_key = metadata_key;
             bonbon.glazings.push(Glazing {
+                name: args.data.name,
+                symbol: args.data.symbol,
                 uri: args.data.uri,
                 creators: from_creators(args.data.creators),
                 collection: None,
