@@ -350,18 +350,24 @@ fn reassemble(config: &Config) -> Result<()> {
             let outer_index: i64 = row.get(6);
             let inner_index: Option<i64> = row.get(7);
 
+            let instruction_index = InstructionIndex {
+                slot,
+                block_index,
+                outer_index,
+                inner_index,
+            };
             let instruction_context = InstructionContext {
                 account_keys: &keys,
                 instruction: &instruction,
                 owners: &metas,
-                instruction_index: InstructionIndex { slot, block_index, outer_index, inner_index },
+                instruction_index: instruction_index.clone(),
                 transient_metas: &mut transient_metas,
             };
 
             match bonbon.update(instruction_context, &updaters) {
                 Ok(_) => {}
                 Err(err) => {
-                    update_err = Some(err);
+                    update_err = Some((err, instruction_index));
                     break;
                 }
             }
