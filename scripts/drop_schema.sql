@@ -7,6 +7,7 @@ DROP TABLE IF EXISTS partitions ;
 DROP TABLE IF EXISTS partition_failures ;
 DROP TABLE IF EXISTS transactions ;
 
+DROP TYPE IF EXISTS instruction_index;
 DROP TYPE IF EXISTS limited_edition;
 DROP TYPE IF EXISTS edition_status;
 DROP TYPE IF EXISTS token_meta;
