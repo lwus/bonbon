@@ -672,9 +672,8 @@ pub fn update_token_instruction<T: Cocoa>(
         TokenInstruction::ThawAccount => {}
         TokenInstruction::ApproveChecked { .. } => {}
         TokenInstruction::SyncNative => {}
-        TokenInstruction::InitializeAccount3 { .. } => {
+        TokenInstruction::InitializeAccount3 { owner: owner_key } => {
             let account_key = get_account_key(0)?;
-            let owner_key = get_account_key(2)?;
             bonbon.ownerships.insert(
                 account_key,
                 owner_key,
