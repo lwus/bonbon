@@ -201,6 +201,21 @@ pub struct Bonbon {
     ownerships: HashMap<Pubkey, Pubkey>,
 }
 
+impl std::fmt::Display for Bonbon {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Bonbon")
+            .field("mint_key", &self.mint_key)
+            .field("metadata_key", &self.metadata_key)
+            .field("mint_authority", &self.mint_authority)
+            .field("transfers", &self.transfers)
+            .field("current_owner", &self.current_owner)
+            .field("edition_status", &self.edition_status)
+            .field("limited_edition", &self.limited_edition)
+            .field("glazings", &self.glazings)
+            .finish()
+    }
+}
+
 impl Bonbon {
     pub fn apply_creator_verification(
         &mut self,
