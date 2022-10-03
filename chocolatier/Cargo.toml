@@ -8,7 +8,7 @@ license = "Apache-2.0"
 anyhow = "1.0.59"
 base64 = "0.13.0"
 bincode = "1.3.3"
-bonbon = { path = "../bonbon" }
+bonbon = { path = "../bonbon", features = ["serde-feature"] }
 bytes = "1.1.0"
 bs58 = "0.4.0"
 chrono = "0.4.19"

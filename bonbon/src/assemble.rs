@@ -10,6 +10,13 @@ use {
     std::collections::HashMap,
 };
 
+#[cfg(feature = "serde-feature")]
+use {
+    serde_with::{As, DisplayFromStr},
+    serde::{Deserialize, Serialize},
+};
+
+#[cfg_attr(feature = "serde-feature", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq)]
 pub enum EditionStatus {
     // Edition has not been created. This state is used temporarily for every NFT we encounter
@@ -29,8 +36,13 @@ impl Default for EditionStatus {
     }
 }
 
-#[derive(Debug)]
+#[cfg_attr(feature = "serde-feature", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
 pub struct LimitedEdition {
+    #[cfg_attr(
+        feature = "serde-feature",
+        serde(with = "As::<DisplayFromStr>")
+    )]
     pub master_key: Pubkey,
 
     // TODO: this is kind of a PITA to track correctly with the old method. Punt for now
@@ -40,8 +52,13 @@ pub struct LimitedEdition {
     pub instruction_index: InstructionIndex,
 }
 
+#[cfg_attr(feature = "serde-feature", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct Creator {
+    #[cfg_attr(
+        feature = "serde-feature",
+        serde(with = "As::<DisplayFromStr>")
+    )]
     pub address: Pubkey,
 
     pub verified: bool,
@@ -67,8 +84,13 @@ fn from_creators(creators: Option<Vec<MplCreator>>) -> Vec<Creator> {
         .collect()
 }
 
+#[cfg_attr(feature = "serde-feature", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct Collection {
+    #[cfg_attr(
+        feature = "serde-feature",
+        serde(with = "As::<DisplayFromStr>")
+    )]
     pub address: Pubkey,
 
     pub verified: bool,
@@ -83,6 +105,7 @@ impl From<MplCollection> for Collection {
     }
 }
 
+#[cfg_attr(feature = "serde-feature", derive(Serialize, Deserialize))]
 #[derive(PartialOrd, Ord, PartialEq, Eq, Default, Debug, Clone)]
 pub struct InstructionIndex {
     pub slot: i64,
@@ -94,12 +117,23 @@ pub struct InstructionIndex {
     pub inner_index: Option<i64>,
 }
 
+#[cfg_attr(feature = "serde-feature", derive(Serialize, Deserialize))]
 #[derive(Default, Debug, Clone)]
 pub struct Ownership {
+    #[cfg_attr(
+        feature = "serde-feature",
+        serde(with = "As::<DisplayFromStr>")
+    )]
     pub owner: Pubkey,
+
+    #[cfg_attr(
+        feature = "serde-feature",
+        serde(with = "As::<DisplayFromStr>")
+    )]
     pub account: Pubkey,
 }
 
+#[cfg_attr(feature = "serde-feature", derive(Serialize, Deserialize))]
 #[derive(Default, Debug, Clone)]
 pub struct Transfer {
     pub slot: i64,
@@ -107,6 +141,7 @@ pub struct Transfer {
     pub end: Option<Ownership>,   // end can be None after burn
 }
 
+#[cfg_attr(feature = "serde-feature", derive(Serialize, Deserialize))]
 #[derive(Default, Debug, Clone)]
 pub struct Glazing {
     pub name: String,
@@ -122,12 +157,25 @@ pub struct Glazing {
     pub instruction_index: InstructionIndex,
 }
 
+#[cfg_attr(feature = "serde-feature", derive(Serialize, Deserialize))]
 #[derive(Default, Debug)]
 pub struct Bonbon {
+    #[cfg_attr(
+        feature = "serde-feature",
+        serde(with = "As::<DisplayFromStr>")
+    )]
     pub mint_key: Pubkey, // could be pubkey::default
 
+    #[cfg_attr(
+        feature = "serde-feature",
+        serde(with = "As::<DisplayFromStr>")
+    )]
     pub metadata_key: Pubkey, // could be pubkey::default
 
+    #[cfg_attr(
+        feature = "serde-feature",
+        serde(with = "As::<DisplayFromStr>")
+    )]
     pub mint_authority: Pubkey, // could be pubkey::default
 
     pub transfers: Vec<Transfer>,
@@ -146,6 +194,10 @@ pub struct Bonbon {
     // mapping of token account to owner
     // TODO: this is a bit of a hack. We need to track the owner of the token account and normally
     // rely on pre/postTokenBalances but those aren't available around block ~80M so...
+    #[cfg_attr(
+        feature = "serde-feature",
+        serde(skip)
+    )]
     ownerships: HashMap<Pubkey, Pubkey>,
 }
 
