@@ -345,6 +345,16 @@ pub fn partition_metadata_instruction(
         MetadataInstruction::ThawDelegatedAccount => {
             return Ok(None);
         }
+        MetadataInstruction::BurnNft => get_account_key(0)?,
+        MetadataInstruction::VerifySizedCollectionItem => get_account_key(0)?,
+        MetadataInstruction::UnverifySizedCollectionItem => get_account_key(0)?,
+        MetadataInstruction::SetAndVerifySizedCollectionItem => get_account_key(0)?,
+        MetadataInstruction::CreateMetadataAccountV3(_) => get_account_key(0)?,
+        MetadataInstruction::SetCollectionSize(_) => {
+            // TODO. shouldn't be relevant to collection members directly...
+            return Ok(None);
+        }
+        MetadataInstruction::SetTokenStandard => get_account_key(0)?,
     };
 
     Ok(Some(*partition_key))

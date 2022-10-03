@@ -497,6 +497,55 @@ pub fn update_metadata_instruction<T: Cocoa>(
             let collection_key = get_account_key(3)?;
             bonbon.apply_collection_verification(collection_key, false, instruction_index);
         }
+        MetadataInstruction::BurnNft => {
+            bonbon.apply_ownership(None, instruction_index.slot);
+        }
+        MetadataInstruction::VerifySizedCollectionItem => {
+            let metadata_key = get_account_key(0)?;
+            if bonbon.metadata_key != metadata_key {
+                return Err(ErrorCode::InvalidMetadataVerifyOperation);
+            }
+
+            let collection_key = get_account_key(3)?;
+            bonbon.apply_collection_verification(collection_key, true, instruction_index);
+        }
+        MetadataInstruction::UnverifySizedCollectionItem => {
+            let metadata_key = get_account_key(0)?;
+            if bonbon.metadata_key != metadata_key {
+                return Err(ErrorCode::InvalidMetadataVerifyOperation);
+            }
+
+            let collection_key = get_account_key(3)?;
+            bonbon.apply_collection_verification(collection_key, false, instruction_index);
+        }
+        MetadataInstruction::SetAndVerifySizedCollectionItem => {
+            let metadata_key = get_account_key(0)?;
+            if bonbon.metadata_key != metadata_key {
+                return Err(ErrorCode::InvalidMetadataVerifyOperation);
+            }
+
+            let collection_key = get_account_key(4)?;
+            bonbon.apply_collection_verification(collection_key, true, instruction_index);
+        }
+        MetadataInstruction::CreateMetadataAccountV3(args) => {
+            // with collection details if parent collection NFT
+            let metadata_key = get_account_key(0)?;
+            if find_metadata_account(&bonbon.mint_key).0 != metadata_key {
+                return Err(ErrorCode::InvalidMetadataCreate);
+            }
+
+            // ignore collection details
+            // bonbon.collection_details = args.collection_details.map(|cd| cd.into());
+            bonbon.metadata_key = metadata_key;
+            bonbon.glazings.push(Glazing {
+                name: args.data.name,
+                symbol: args.data.symbol,
+                uri: args.data.uri,
+                creators: from_creators(args.data.creators),
+                collection: None,
+                instruction_index,
+            });
+        }
         MetadataInstruction::UpdatePrimarySaleHappenedViaToken => {}
         MetadataInstruction::DeprecatedSetReservationList(_) => {}
         MetadataInstruction::DeprecatedCreateReservationList => {}
@@ -511,6 +560,8 @@ pub fn update_metadata_instruction<T: Cocoa>(
         MetadataInstruction::RevokeCollectionAuthority => {}
         MetadataInstruction::FreezeDelegatedAccount => {}
         MetadataInstruction::ThawDelegatedAccount => {}
+        MetadataInstruction::SetCollectionSize(_) => {}
+        MetadataInstruction::SetTokenStandard => {} // TODO?
     }
 
     Ok(())
