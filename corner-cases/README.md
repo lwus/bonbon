@@ -33,3 +33,7 @@ yarn tsx scripts/cli.ts dust <destination-wallet-address> 5
 ### `clone`
 
 Clones an NFT from `mainnet-beta` (except for any verification flags)
+
+```
+yarn tsx scripts/cli.ts clone <token-mint-address> <destination-wallet-address>
+```
