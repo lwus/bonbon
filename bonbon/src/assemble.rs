@@ -609,7 +609,7 @@ pub fn update_metadata_instruction<T: Cocoa>(
                 symbol: args.data.symbol,
                 uri: args.data.uri,
                 creators: from_creators(args.data.creators),
-                collection: None,
+                collection: args.data.collection.map(Collection::from),
                 instruction_index,
             });
         }
