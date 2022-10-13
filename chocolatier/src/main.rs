@@ -383,6 +383,53 @@ fn reassemble(config: &Config) -> Result<()> {
             continue;
         }
 
+        if let Some(limited_edition) = &bonbon.limited_edition {
+            if !bonbon.glazings.is_empty() {
+                warn!("limited bonbon {}: had existing glazings", mint_key);
+            }
+
+            // fetch the master bonbon instructions. all the glazing information can be found in
+            // the metadata instructions so we only need this `master_key`
+            let master_key_encoded = base64::encode(&limited_edition.master_key);
+            let master_instructions = psql_client.query(
+                &select_partition_key,
+                &[&master_key_encoded, &master_key_encoded],
+            )?;
+
+            // conversions...
+            let master_instructions = master_instructions
+                .into_iter()
+                .map(|row| {
+                    let instruction_index = InstructionIndex {
+                        slot: row.get(4),
+                        block_index: row.get(5),
+                        outer_index: row.get(6),
+                        inner_index: row.get(7),
+                    };
+
+                    bincode::deserialize
+                        ::<CompiledInstruction>(&row.get::<_, Vec<u8>>(1))
+                        .map(|instruction| (instruction, instruction_index))
+                })
+                .collect::<Result<Vec<_>, _>>().unwrap();
+
+            // finalize the limited edition
+            let glaze_err = bonbon::assemble::glaze_limited(
+                &mut bonbon, master_instructions.as_slice());
+
+            if let Err(err) = glaze_err {
+                warn!("limited bonbon {}: failed to glaze: {:?}", mint_key, err);
+                continue;
+            }
+
+            // and theoretically we should always have exactly 1 glazing at this point
+            if bonbon.glazings.is_empty() {
+                warn!("limited bonbon {}: no glazings", mint_key);
+            } else if bonbon.glazings.len() > 1 {
+                warn!("limited bonbon {}: too many glazings ({})", mint_key, bonbon.glazings.len());
+            }
+        }
+
         // TODO: more verification on partition_keys?
         let query_start = std::time::Instant::now();
         psql_client.query(

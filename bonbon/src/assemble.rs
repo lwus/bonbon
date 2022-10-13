@@ -852,3 +852,43 @@ impl Bonbon {
         }
     }
 }
+
+pub fn glaze_limited<T: Cocoa>(
+    bonbon: &mut Bonbon,
+    // in chronological order
+    master_instructions: &[(T, InstructionIndex)],
+) -> Result<(), ErrorCode> {
+    if let Some(limited_edition) = &mut bonbon.limited_edition {
+        let mut latest_glazing = None;
+        for (instruction, index) in master_instructions {
+            let index = index.clone();
+
+            // limited edition metadata does not get updated as the master changes
+            // i.e it is final at point of limited edition creation
+            if index > limited_edition.instruction_index {
+                break;
+            }
+
+            let metadata_instruction = instruction.roast()?;
+            let glazing = match metadata_instruction {
+                MetadataInstruction::CreateMetadataAccount(args) => Some(args.data.into_glazing(index)),
+                MetadataInstruction::CreateMetadataAccountV2(args) => Some(args.data.into_glazing(index)),
+                MetadataInstruction::CreateMetadataAccountV3(args) => Some(args.data.into_glazing(index)),
+                MetadataInstruction::UpdateMetadataAccount(args) => args.data.map(|data| data.into_glazing(index)),
+                MetadataInstruction::UpdateMetadataAccountV2(args) => args.data.map(|data| data.into_glazing(index)),
+                _ => None,
+            };
+
+            // since these are sorted, just update the latest
+            if glazing.is_some() {
+                latest_glazing = glazing;
+            }
+        }
+
+        if let Some(glazing) = latest_glazing {
+            bonbon.glazings.push(glazing);
+        }
+    }
+
+    Ok(())
+}
