@@ -367,6 +367,36 @@ pub struct InstructionContext<'a, T: Cocoa> {
     pub transient_metas: &'a mut Vec<TransactionTokenOwnerMeta>,
 }
 
+trait IntoGlazing {
+    fn into_glazing(self, instruction_index: InstructionIndex) -> Glazing;
+}
+
+impl IntoGlazing for mpl_token_metadata::state::Data {
+    fn into_glazing(self, instruction_index: InstructionIndex) -> Glazing {
+        Glazing {
+            name: self.name,
+            symbol: self.symbol,
+            uri: self.uri,
+            creators: from_creators(self.creators),
+            collection: None,
+            instruction_index,
+        }
+    }
+}
+
+impl IntoGlazing for mpl_token_metadata::state::DataV2 {
+    fn into_glazing(self, instruction_index: InstructionIndex) -> Glazing {
+        Glazing {
+            name: self.name,
+            symbol: self.symbol,
+            uri: self.uri,
+            creators: from_creators(self.creators),
+            collection: self.collection.map(Collection::from),
+            instruction_index,
+        }
+    }
+}
+
 pub fn update_metadata_instruction<T: Cocoa>(
     bonbon: &mut Bonbon,
     InstructionContext {
@@ -390,14 +420,7 @@ pub fn update_metadata_instruction<T: Cocoa>(
             }
 
             bonbon.metadata_key = metadata_key;
-            bonbon.glazings.push(Glazing {
-                name: args.data.name,
-                symbol: args.data.symbol,
-                uri: args.data.uri,
-                creators: from_creators(args.data.creators),
-                collection: None,
-                instruction_index,
-            });
+            bonbon.glazings.push(args.data.into_glazing(instruction_index));
         }
         MetadataInstruction::CreateMetadataAccountV2(args) => {
             // create metadata with datav2 (adds collection info, etc)
@@ -407,14 +430,7 @@ pub fn update_metadata_instruction<T: Cocoa>(
             }
 
             bonbon.metadata_key = metadata_key;
-            bonbon.glazings.push(Glazing {
-                name: args.data.name,
-                symbol: args.data.symbol,
-                uri: args.data.uri,
-                creators: from_creators(args.data.creators),
-                collection: args.data.collection.map(Collection::from),
-                instruction_index,
-            });
+            bonbon.glazings.push(args.data.into_glazing(instruction_index));
         }
         MetadataInstruction::UpdateMetadataAccount(args) => {
             let metadata_key = get_account_key(0)?;
@@ -423,14 +439,7 @@ pub fn update_metadata_instruction<T: Cocoa>(
             }
 
             if let Some(data) = args.data {
-                bonbon.glazings.push(Glazing {
-                    name: data.name,
-                    symbol: data.symbol,
-                    uri: data.uri,
-                    creators: from_creators(data.creators),
-                    collection: None,
-                    instruction_index,
-                });
+                bonbon.glazings.push(data.into_glazing(instruction_index));
             }
         }
         MetadataInstruction::UpdateMetadataAccountV2(args) => {
@@ -440,14 +449,7 @@ pub fn update_metadata_instruction<T: Cocoa>(
             }
 
             if let Some(data) = args.data {
-                bonbon.glazings.push(Glazing {
-                    name: data.name,
-                    symbol: data.symbol,
-                    uri: data.uri,
-                    creators: from_creators(data.creators),
-                    collection: data.collection.map(Collection::from),
-                    instruction_index,
-                });
+                bonbon.glazings.push(data.into_glazing(instruction_index));
             }
         }
         MetadataInstruction::DeprecatedCreateMasterEdition(_) => {
@@ -604,14 +606,7 @@ pub fn update_metadata_instruction<T: Cocoa>(
             // ignore collection details
             // bonbon.collection_details = args.collection_details.map(|cd| cd.into());
             bonbon.metadata_key = metadata_key;
-            bonbon.glazings.push(Glazing {
-                name: args.data.name,
-                symbol: args.data.symbol,
-                uri: args.data.uri,
-                creators: from_creators(args.data.creators),
-                collection: args.data.collection.map(Collection::from),
-                instruction_index,
-            });
+            bonbon.glazings.push(args.data.into_glazing(instruction_index));
         }
         MetadataInstruction::UpdatePrimarySaleHappenedViaToken => {}
         MetadataInstruction::DeprecatedSetReservationList(_) => {}
