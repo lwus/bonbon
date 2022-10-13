@@ -102,3 +102,37 @@ CREATE TABLE transfers (
   end_account VARCHAR
 );
 
+CREATE FUNCTION numeric2bytea(_n NUMERIC) RETURNS BYTEA AS $$
+DECLARE
+    _b BYTEA := '\x';
+    _v INTEGER;
+BEGIN
+    WHILE _n > 0 LOOP
+        _v := _n % 256;
+        _b := SET_BYTE(('\x00' || _b),0,_v);
+        _n := (_n-_v)/256;
+    END LOOP;
+    RETURN _b;
+END;
+$$ LANGUAGE PLPGSQL IMMUTABLE STRICT;
+
+CREATE FUNCTION base58_decode (str TEXT) RETURNS BYTEA AS $$
+DECLARE
+  -- TODO: array indexed by ascii value of character
+  alphabet VARCHAR(255) = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  v NUMERIC = 0;
+  c CHAR(1);
+  p INT;
+BEGIN
+  FOR i IN 1..char_length(str) LOOP
+    c := substring(str FROM i FOR 1);
+    p := position(c IN alphabet);
+    IF p = 0 THEN
+      RAISE 'Illegal base58 character ''%'' in ''%''', c, str;
+    END IF;
+    v := (v * 58) + (p - 1);
+  END LOOP;
+  RETURN numeric2bytea(v);
+END;
+$$ LANGUAGE PLPGSQL IMMUTABLE STRICT;
+
