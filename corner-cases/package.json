@@ -1,0 +1,13 @@
+{
+  "name": "corner-cases",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "@metaplex-foundation/js": "^0.15.0",
+    "@solana/web3.js": "^1.63.1"
+  },
+  "devDependencies": {
+    "tsx": "^3.9.0"
+  }
+}
